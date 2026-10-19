@@ -1,0 +1,42 @@
+[
+ {
+  "id": "welcome",
+  "title": "A place for ideas",
+  "body": "Your thoughts deserve a little room to grow. This is your space to capture what matters, make connections, and find your way back to a good idea.\n\n## A little less noise. A little more clarity.\nStart with a thought. It doesn’t need to be finished, organized, or particularly brilliant. Just give it a place to land.\n\n> [!tip] Everything starts with a note\n> Press **⌘ N** to make something new, or click **Edit note** to make this space your own.\n\n## A few things in motion\n- [x] Make a space for your thoughts\n- [ ] Write something in [[Today’s intentions]]\n- [ ] Collect a spark in [[Small observations]]\n- [ ] Connect two ideas with a link\n\n## Follow the connections\nThe best ideas rarely happen in isolation. Link a note with `[[double brackets]]` and let one thought lead to another.\n\nTry exploring [[The creative process]], or start building your own [[Reading list]].\n\n---\n*A notebook is a place where you get to think out loud.*"
+ },
+ {
+  "id": "intentions",
+  "title": "Today’s intentions",
+  "body": "## What matters today\n- [ ] Give one thing my full attention\n- [ ] Make time for a walk\n- [ ] Capture one unexpected idea\n\nA small reminder from [[A place for ideas]]: unfinished thoughts are welcome here."
+ },
+ {
+  "id": "creative",
+  "title": "The creative process",
+  "body": "## Collect, connect, create\nGood ideas are usually a conversation between things you already noticed.\n\n1. Collect details in [[Small observations]].\n2. Look for connections in your notes.\n3. Make a small version before a big plan.\n\n## Leave a little space\nA walk, a quiet morning, a page without an agenda. Start at [[A place for ideas]]."
+ },
+ {
+  "id": "garden",
+  "title": "A digital garden",
+  "body": "## Notes that keep growing\nThink of your notes as a garden. Some are seedlings; others need pruning.\n\n[[The creative process]] and [[Small observations]] are good starting points.\n\n## Next steps\n- [ ] Connect related thoughts\n- [ ] Revisit an old idea"
+ },
+ {
+  "id": "observations",
+  "title": "Small observations",
+  "body": "## Pay attention\n- The best conversations have room for silence.\n- A familiar street looks different early in the morning.\n- A question can be more useful than an answer.\n\nThese little details feed [[The creative process]]."
+ },
+ {
+  "id": "slow",
+  "title": "The art of slowing down",
+  "body": "## Create a little margin\nLeave ten minutes between things. There is no need to fill every space.\n\nA useful companion to [[Today’s intentions]]."
+ },
+ {
+  "id": "reading",
+  "title": "Reading list",
+  "body": "## On the nightstand\n- [ ] A book that challenges an assumption\n- [ ] A collection of essays\n- [x] A favorite worth reading twice\n\n## Notes to keep\nSave the ideas that stay with you in [[Small observations]]."
+ },
+ {
+  "id": "markdown",
+  "title": "Markdown guide",
+  "body": "## The basics\nUse **bold** for emphasis, *italics* for a softer touch, and `code` for something literal.\n\n## Organize your thoughts\nStart a heading with `##`. Write a list with `-`. Add a task with `- [ ]`.\n\n## Connect your notes\nUse `[[A place for ideas]]` to link another note. Tags live beside the note title.\n\n> [!tip] Keep your words portable\n> Export any note as Markdown, or back up your whole vault from Settings."
+ }
+]
