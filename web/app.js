@@ -22,7 +22,6 @@ import {
   pickOpenFile,
   browserLocks,
   idbHandleStore,
-  serializeVault,
 } from "./filesync.js";
 const $ = (s, root = document) => root.querySelector(s);
 const icons = {
