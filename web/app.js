@@ -7,6 +7,8 @@ import {
   StorageUnavailableError,
   CorruptVaultError,
   needsBackupReminder,
+  storageFooter,
+  fileUiAllowed,
 } from "./store.js";
 import {
   pendingDrafts,
@@ -165,7 +167,7 @@ const current = () => vault.notes.find((n) => n.id === active);
 function render() {
   let n = current();
   $("#app").innerHTML =
-    `<div class="workspace ${showFiles ? "show-files" : ""} ${showContext ? "show-context" : ""} ${hideFiles ? "no-files" : ""} ${hideContext ? "no-context" : ""}"><nav class="rail" aria-label="Workspace tools"><div class="brand" title="${esc(BRAND.name)}">${BRAND.glyph}</div>${ib("file", "Notes", "notes", view === "note" ? "active" : "")}${ib("search", "Search notes (⌘ K)", "search")}${ib("graph", "Graph view", "graph", view === "graph" ? "active" : "")}${ib("canvas", "Canvas", "canvas", view === "canvas" ? "active" : "")}${ib("calendar", "Open daily note", "daily")}<div class="rail-bottom">${ib("help", "Keyboard shortcuts", "help")}${ib("settings", "Settings", "settings")}</div></nav><aside class="files" aria-label="Notes and folders"><div class="vault-name">${icon("book")} Personal space <small>⌄</small>${ib("x", "Close files", "files", "mobile-close")}</div><button class="search-trigger" data-action="search">${icon("search")}<span>Quick switcher</span><kbd>⌘ K</kbd></button><div class="section-title">FILES <span class="tools">${ib("plus", "New note (⌘ N)", "new")}${ib("folder", "New folder", "folder")}${ib("down", "Collapse or expand folders", "collapse")}</span></div><div class="file-tree">${tree()}</div><div class="mobile-tools">${ib("graph", "Graph view", "graph")}${ib("canvas", "Canvas", "canvas")}${ib("calendar", "Open daily note", "daily")}${ib("settings", "Settings", "settings")}</div><div class="vault-footer">${icon("cloud")} ${storageDown ? "Not saved" : "Stored on this device"}</div></aside><main class="main"><div class="tabs"><div class="tabs-scroll" role="group" aria-label="Open notes">${tabs
+    `<div class="workspace ${showFiles ? "show-files" : ""} ${showContext ? "show-context" : ""} ${hideFiles ? "no-files" : ""} ${hideContext ? "no-context" : ""}"><nav class="rail" aria-label="Workspace tools"><div class="brand" title="${esc(BRAND.name)}">${BRAND.glyph}</div>${ib("file", "Notes", "notes", view === "note" ? "active" : "")}${ib("search", "Search notes (⌘ K)", "search")}${ib("graph", "Graph view", "graph", view === "graph" ? "active" : "")}${ib("canvas", "Canvas", "canvas", view === "canvas" ? "active" : "")}${ib("calendar", "Open daily note", "daily")}<div class="rail-bottom">${ib("help", "Keyboard shortcuts", "help")}${ib("settings", "Settings", "settings")}</div></nav><aside class="files" aria-label="Notes and folders"><div class="vault-name">${icon("book")} Personal space <small>⌄</small>${ib("x", "Close files", "files", "mobile-close")}</div><button class="search-trigger" data-action="search">${icon("search")}<span>Quick switcher</span><kbd>⌘ K</kbd></button><div class="section-title">FILES <span class="tools">${ib("plus", "New note (⌘ N)", "new")}${ib("folder", "New folder", "folder")}${ib("down", "Collapse or expand folders", "collapse")}</span></div><div class="file-tree">${tree()}</div><div class="mobile-tools">${ib("graph", "Graph view", "graph")}${ib("canvas", "Canvas", "canvas")}${ib("calendar", "Open daily note", "daily")}${ib("settings", "Settings", "settings")}</div><div class="vault-footer">${icon("cloud")} ${storageFooter({ loading, loaded, storageDown })}</div></aside><main class="main"><div class="tabs"><div class="tabs-scroll" role="group" aria-label="Open notes">${tabs
       .map((id) => {
         let t = vault.notes.find((x) => x.id === id);
         return t
@@ -368,7 +370,7 @@ function saveAlertHTML() {
   return "";
 }
 function fileAlertHTML() {
-  if (!loaded || !mirror) return "";
+  if (!fileUiAllowed({ loaded, storageDown }) || !mirror) return "";
   const name = fileState.name ? `“${esc(fileState.name)}”` : "your vault file";
   const behind = fileState.behind
     ? ` The file is ${fileState.behind} save${fileState.behind === 1 ? "" : "s"} behind.`
@@ -532,7 +534,8 @@ async function loadVault() {
     } else if (e instanceof StorageUnavailableError || e?.name === "QuotaError") {
       storageDown = true;
       loaded = true;
-      vault = seedVault();
+      // No sample notes here: nothing can be saved, so start empty and say so.
+      vault = emptyVault();
       revision = 0;
       saveError = e.message + " Export a backup to keep your notes.";
       fixNavigation();
@@ -746,6 +749,7 @@ function vaultReplaced(newVault, newRevision) {
   toast("Loaded newer notes from your vault file.");
 }
 async function fileSave() {
+  if (!fileUiAllowed({ loaded, storageDown })) return;
   // The picker must be the first thing a click does: it needs user activation.
   const handle = await pickSaveFile();
   if (!handle) return;
@@ -758,6 +762,7 @@ async function fileSave() {
   if (mirror.state.kind === "synced") toast("Saving to “" + handle.name + "”.");
 }
 async function fileOpen() {
+  if (!fileUiAllowed({ loaded, storageDown })) return;
   const handle = await pickOpenFile();
   if (!handle) return;
   await flushSave();
@@ -830,6 +835,8 @@ async function clearDraftsDialog() {
   );
 }
 function fileRow() {
+  if (storageDown)
+    return `<div class="row-setting"><div>Save to a file<p>Not available while this browser is not keeping your notes. Use Export to keep a copy.</p></div></div>`;
   if (!caps.supported)
     return `<div class="row-setting"><div>Save to a file<p>Not available in this browser. Use Export for backups; browsers with this feature include Chrome, Edge and Opera on a computer.</p></div></div>`;
   const k = fileState.kind;
@@ -1583,7 +1590,7 @@ if (caps.supported) {
   });
 }
 document.addEventListener("visibilitychange", () => {
-  if (!loaded) return;
+  if (!fileUiAllowed({ loaded, storageDown })) return;
   if (document.visibilityState === "hidden") {
     mirror?.flush().catch(() => {});
     return;
@@ -1597,7 +1604,7 @@ document.addEventListener("visibilitychange", () => {
   mirror?.sync().catch(() => {});
 });
 window.addEventListener("focus", () => {
-  if (loaded) mirror?.sync().catch(() => {});
+  if (fileUiAllowed({ loaded, storageDown })) mirror?.sync().catch(() => {});
 });
 try {
   document.body.classList.toggle(

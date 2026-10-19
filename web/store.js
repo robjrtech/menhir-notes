@@ -282,3 +282,18 @@ export function needsBackupReminder({
   if (!Number.isFinite(base)) return false;
   return now - base > 7 * DAY;
 }
+
+// -- what the interface may claim, as pure functions so they can be tested -------------------
+
+// The label in the files footer.
+export function storageFooter({ loading, loaded, storageDown }) {
+  if (storageDown) return "Not saved";
+  if (loading) return "Opening your notes…";
+  if (!loaded) return "Notes unavailable";
+  return "Stored on this device";
+}
+
+// Saving to a file, and any sync with it, only make sense once notes were read from, and can
+// be written to, browser storage.
+export const fileUiAllowed = ({ loaded, storageDown }) =>
+  !!loaded && !storageDown;
