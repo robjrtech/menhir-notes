@@ -164,3 +164,36 @@ test('a GET that carries a large body is answered and closed the same way',async
  t.diagnostic(`sent ${(r.sent/MB).toFixed(2)} MB, memory growth ${(r.growth/MB).toFixed(2)} MB`);
  assert.equal(r.status,200);assert.ok(!violates(r),`sent ${(r.sent/MB).toFixed(1)} MB, growth ${(r.growth/MB).toFixed(1)} MB`);
 });
+
+test('a request with no Host header gets the app\'s 403 with every hardening header',async()=>{
+ const raw=await new Promise(resolve=>{
+  const s=net.connect(port,'127.0.0.1',()=>s.write('GET / HTTP/1.1\r\nConnection: close\r\n\r\n'));
+  let data='';s.on('data',d=>data+=d);s.on('close',()=>resolve(data));
+ });
+ assert.match(raw,/^HTTP\/1\.1 403/);
+ for(const [k,v] of Object.entries(SECURITY_HEADERS))assert.ok(raw.toLowerCase().includes(`${k.toLowerCase()}: ${v.toLowerCase()}`),'missing '+k);
+ assert.match(raw,/Forbidden host/);
+ assert.ok(events.some(([e,f])=>e==='host_rejected'&&f.host===undefined));
+});
+
+test('refusing a request depends on two Node internals; this fails if either disappears',async()=>{
+ const seen=[];
+ const srv=createServer({logEvent(){}});
+ // Runs before the server's own handler, so it sees Node's untouched request and socket.
+ srv.prependListener('request',req=>{if(req.method==='POST')seen.push([typeof req._dump,typeof req.socket.destroySoon])});
+ await new Promise(r=>srv.listen(0,'127.0.0.1',r));
+ const p=srv.address().port;
+ const status=await new Promise((resolve,reject)=>{
+  const q=http.request({host:'127.0.0.1',port:p,method:'POST',path:'/',setHost:false,headers:{Host:`127.0.0.1:${p}`},agent:false},res=>{res.resume();res.on('end',()=>resolve(res.statusCode))});
+  q.on('error',reject);q.end('x');
+ });
+ srv.closeAllConnections?.();await new Promise(r=>srv.close(r));
+ assert.equal(status,405);
+ assert.deepEqual(seen,[['function','function']]);
+});
+test('the deferred close is armed from the response finish event, not only from destroySoon',()=>{
+ const src=readFileSync(new URL('../scripts/serve.mjs',import.meta.url),'utf8');
+ const body=src.slice(src.indexOf('function refuse('));
+ assert.match(body,/res\.once\("finish"/);
+ assert.match(body,/socket\.destroy\(\)/);
+});

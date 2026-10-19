@@ -64,7 +64,9 @@ const text = (res, status, message, extra = {}) =>
   );
 
 export function createServer({ files = FILES, logEvent = defaultLog } = {}) {
-  const server = http.createServer(async (req, res) => {
+  // requireHostHeader is off so that a request with no Host reaches the handler and gets the
+  // same 403 and hardening headers as every other rejected host.
+  const server = http.createServer({ requireHostHeader: false }, async (req, res) => {
     try {
       const port = server.address()?.port;
       const decision = localOrigin(req.headers.host, port);
@@ -135,10 +137,12 @@ const CLOSE_GRACE_MS = 250;
 function refuse(res, req, status, body, headers = {}) {
   const socket = req.socket;
   req._dump = () => {}; // stop Node from reading and discarding the rest of the body
-  socket.destroySoon = () => {
-    socket.end();
+  socket.destroySoon = () => socket.end();
+  // Armed from the response itself, so the socket is closed even if Node stops calling
+  // destroySoon.
+  res.once("finish", () => {
     setTimeout(() => socket.destroy(), CLOSE_GRACE_MS).unref();
-  };
+  });
   res.writeHead(status, {
     ...SECURITY_HEADERS,
     "Content-Type": "text/plain; charset=utf-8",
