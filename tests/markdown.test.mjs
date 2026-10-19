@@ -33,7 +33,7 @@ test('differential: inline() matches the reference regex on 20,000 random string
 test('differential: inline() on longer strings and hand-picked edge cases',()=>{
  const rand=mulberry32(12345);
  for(let i=0;i<3000;i++){const s=randomString(rand,400);assert.equal(fresh.inline(s),oracle.inline(s),JSON.stringify(s))}
- const edges=['','[','[[','[[]]','[[a]]','[[a]','[[a]]]','[[[a]]','[a](b)','[a](b','[a]()','[](b)','[a] (b)','[a](b c)','[a](javascript:alert)','[a](https://x.y/z?q=1)','[a](mailto:b@c.d)','[a](b)(c)','`','``','`a`','`a','``a``','**','***','****','**a**','**a*','*a**','*a*','**a**b*c*','a*b','[[a\nb]]','[a\nb](c)','`a\nb`','*a\nb*','**a\nb**','[a]( b)','[a](b c)','[a](b﻿c)','[x](https://a)[y](https://b)','<script>"&\'','[[a]] and [[b]]','[**a**](b)','[`a`](b)','**[[a]]**','`**a**`','[[a](https://x.y)','[x [y](https://u.v)','[[a]](https://u.v)','[a [[b]] c](https://u.v)','[a[b](https://u.v)'];
+ const edges=['','[','[[','[[]]','[[a]]','[[a]','[[a]]]','[[[a]]','[a](b)','[a](b','[a]()','[](b)','[a] (b)','[a](b c)','[a](javascript:alert)','[a](https://x.y/z?q=1)','[a](mailto:b@c.d)','[a](b)(c)','`','``','`a`','`a','``a``','**','***','****','**a**','**a*','*a**','*a*','**a**b*c*','a*b','[[a\nb]]','[a\nb](c)','`a\nb`','*a\nb*','**a\nb**','[a]( b)','[a](b c)','[a](b\uFEFFc)','[x](https://a)[y](https://b)','<script>"&\'','[[a]] and [[b]]','[**a**](b)','[`a`](b)','**[[a]]**','`**a**`','[[a](https://x.y)','[x [y](https://u.v)','[[a]](https://u.v)','[a [[b]] c](https://u.v)','[a[b](https://u.v)'];
  for(const s of edges)assert.equal(fresh.inline(s),oracle.inline(s),JSON.stringify(s));
 });
 test('differential: renameLinks() matches the reference regex on random strings and titles',()=>{
