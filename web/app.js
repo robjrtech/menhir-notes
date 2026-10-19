@@ -1223,9 +1223,14 @@ async function handleAction(action) {
         "Overwrite the vault file?",
         `<p>The file’s current contents will be replaced with this browser’s notes. They cannot be recovered afterwards, so download them first if you want them.</p><button type="button" class="secondary-button" data-action="file-download">Download file contents</button>${actions("Overwrite file")}`,
         async () => {
-          await mirror.overwriteFile();
+          const r = await mirror.overwriteFile();
           closeDialog();
-          toast("Vault file updated.");
+          toast(
+            r.stale
+              ? "The file changed again, so nothing was overwritten. Please review the notice."
+              : "Vault file updated.",
+          );
+          if (mirror.state.kind === "conflict") conflictDialog();
         },
       );
       break;

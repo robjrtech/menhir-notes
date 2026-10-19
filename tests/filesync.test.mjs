@@ -399,3 +399,61 @@ test('the compact file serialization of the largest allowed vault fits under the
  const clean=validateVault(ok);
  assert.ok(Buffer.byteLength(serializeVault(clean))<=FILE_LIMIT);
 });
+
+// -- overwrite of an unreadable file, and the pre-write content check ----------------------
+test('overwrite: a file that became valid since the banner is not overwritten',async t=>{
+ const c=await linkedWithExternal(t,'{"version":1,');
+ await c.mirror.flush();
+ assert.equal(c.mirror.state.kind,'invalid');
+ const other=serializeVault(edited('valid, from another computer'));
+ c.handle.external(other);              // the file is repaired before the user confirms
+ c.handle.log.length=0;
+ const r=await c.mirror.overwriteFile();
+ assert.equal(r.stale,true);
+ assert.equal(c.handle.content,other,'the valid file must survive');
+ assert.deepEqual(c.handle.log,[]);
+ assert.notEqual(c.mirror.state.kind,'invalid','it is reconciled again');
+});
+test('overwrite: a file that changed to different broken content also counts as stale',async t=>{
+ const c=await linkedWithExternal(t,'{"version":1,');
+ await c.mirror.flush();
+ c.handle.external('{"different":');
+ assert.equal((await c.mirror.overwriteFile()).stale,true);
+ assert.equal(c.handle.content,'{"different":');
+});
+test('overwrite: when the file is still the unreadable one, its text is kept as a draft first',async t=>{
+ const c=await linkedWithExternal(t,'{"version":1,');
+ await c.mirror.flush();
+ const seen=[];
+ const orig=c.handle.createWritable.bind(c.handle);
+ c.handle.createWritable=async()=>{seen.push((await c.store.listDrafts()).map(d=>d.draft.reason));return orig()};
+ assert.deepEqual(await c.mirror.overwriteFile(),{stale:false});
+ assert.deepEqual(seen,[['unreadable file replaced']]);
+ assert.equal((await drafts(c.store))[0].vault.rawText,'{"version":1,');
+ assert.equal(JSON.parse(c.handle.content).notes[0].body,sample().notes[0].body);
+});
+test('overwrite: a too-large file is not read, and a changed size makes it stale',async t=>{
+ const c=await linkedWithExternal(t,'x'.repeat(FILE_LIMIT+10));
+ await c.mirror.flush();
+ assert.equal(c.mirror.state.kind,'too-large');
+ c.handle.external(serializeVault(edited('now fine')));
+ assert.equal((await c.mirror.overwriteFile()).stale,true);
+});
+test('a same-length edit with the same modification time between check and write is not overwritten',async t=>{
+ const c=setup(t);await c.store.save(edited('aaaa'),0);await c.mirror.link(c.handle,'save');
+ await c.store.save(edited('bbbb'),1);
+ const original=c.handle.content;
+ const swapped=original.replace('aaaa','zzzz');
+ assert.equal(swapped.length,original.length);
+ const base=c.handle.getFileCalls;let fired=false;
+ // On the recheck (second getFile) the contents change but size and mtime do not.
+ c.handle.onGetFile=n=>{if(!fired&&n===base+2){fired=true;c.handle.content=swapped}};
+ await c.mirror.flush();
+ assert.ok(fired);
+ assert.equal(c.handle.content,swapped,'the external same-length edit survived');
+ assert.equal(c.mirror.state.kind,'conflict');
+});
+test('control: comparing only size and modification time misses that same-length edit',()=>{
+ const before={size:10,lastModified:5},after={size:10,lastModified:5};
+ assert.ok(before.size===after.size&&before.lastModified===after.lastModified,'metadata-only check sees no change');
+});

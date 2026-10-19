@@ -145,6 +145,7 @@ export class FileMirror {
     this.state = { kind: "unlinked" };
     this.timer = null;
     this.conflict = null;
+    this.unreadable = null;
     this.queue = Promise.resolve();
   }
 
@@ -344,10 +345,14 @@ export class FileMirror {
 
       if (action === "noop")
         return this.setState("synced", { name });
-      if (action === "too-large")
+      if (action === "too-large") {
+        this.unreadable = { size: handleFile.size, hash: null };
         return this.setState("too-large", { name, size: handleFile.size });
-      if (action === "invalid")
+      }
+      if (action === "invalid") {
+        this.unreadable = { size: handleFile.size, hash: file.hash };
         return this.setState("invalid", { name, detail: file.invalidReason });
+      }
       if (action === "conflict") {
         this.conflict = {
           fileVault: file.vault,
@@ -399,6 +404,9 @@ export class FileMirror {
         }
         if (again.size !== handleFile.size || again.lastModified !== handleFile.lastModified)
           continue;
+        // Metadata can match after a same-length edit, so compare the contents too. Some
+        // window always remains: the file API has no compare-and-swap.
+        if ((await this.hash(await again.text())) !== file.hash) continue;
       }
       const json = this.serialize(browserVault);
       try {
@@ -469,17 +477,36 @@ export class FileMirror {
     });
   }
 
-  // The user chose to replace an unreadable file with the browser's notes.
+  // The user chose to replace an unreadable file with the browser's notes. Returns
+  // { stale: true } if the file is no longer the one the banner described.
   overwriteFile() {
     return this.locks.request(BRAND.lockName, async () => {
       const handle = await this.handleStore.get();
+      const seen = this.unreadable;
+      const file = await handle.getFile();
+      const tooLarge = file.size > FILE_LIMIT;
+      const text = tooLarge ? null : await file.text();
+      const hash = tooLarge ? null : await this.hash(text);
+      if (!seen || seen.size !== file.size || seen.hash !== hash) {
+        await this.#syncLocked();
+        return { stale: true };
+      }
       const loaded = await this.store.load();
       if (loaded.status !== "ok") throw new Error("There are no notes to write.");
+      // Keep what is about to be replaced, as a draft that can be downloaded.
+      if (text !== null)
+        await keepDraft(this.store, `unreadable-file-${new Date().toISOString()}-${this.id}`, {
+          revision: loaded.revision,
+          vault: { rawText: text },
+          reason: "unreadable file replaced",
+        });
       const json = this.serialize(loaded.vault);
       await this.#writeFile(handle, json);
       const after = (await handle.getFile()).lastModified;
       await this.#record(handle, loaded.revision, await this.hash(json), after);
+      this.unreadable = null;
       this.setState("synced", { name: handle.name });
+      return { stale: false };
     });
   }
 
