@@ -7,6 +7,7 @@ Menhir Notes is an independent project inspired by Obsidian. It is not affiliate
 ## What it does
 
 - Markdown editing and reading, checklists, headings, callouts and safe external links
+- A Home view at launch: folders as a card carousel (with a Show all grid) and your five most recent notes
 - Folders, tabs, bookmarks, full-text and tag search, keyboard shortcuts
 - Wiki links (`[[note title]]`) with backlinks, rename-aware link updates and a heading outline
 - Daily notes, a note graph and a canvas of note cards
@@ -50,7 +51,7 @@ A vault holds up to 500 notes, 100 folders and 100 canvas cards. Each note can h
 
 ## Security model in brief
 
-- The server answers `GET` and `HEAD` only for ten fixed paths, refuses every other method without reading the body, and accepts only the exact `127.0.0.1:<port>` host (and redirects `localhost`).
+- The server answers `GET` and `HEAD` only for eleven fixed paths, refuses every other method without reading the body, and accepts only the exact `127.0.0.1:<port>` host (and redirects `localhost`).
 - Every response carries a strict Content-Security-Policy (no inline scripts, no network connections from the page, no framing) and the usual hardening headers.
 - Notes are rendered by escaping all text; links are limited to `http`, `https` and `mailto`.
 - Storage and file permissions belong to the browser's origin, so another web page cannot read your notes even if it tricks the browser into talking to the local server.
