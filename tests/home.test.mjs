@@ -157,3 +157,12 @@ test('Home markup escapes hostile folder names, tags, titles and ids',()=>{
 test('every interpolated attribute in the Home markup is double-quoted',()=>{
  assert.ok(!/=\$\{/.test(homeSrc),'unquoted attribute interpolation');
 });
+
+test('collapsing Show all scrolls instantly, so the heading and toggle are not left under the toolbar',()=>{
+ const src=appSrc.slice(appSrc.indexOf('function restoreHomeUi'),appSrc.indexOf('function homeSchedule'));
+ const calls=[...src.matchAll(/scrollIntoView\(([^)]*)\)/g)];
+ assert.equal(calls.length,2);
+ const jump=/const (\w+) = \{[^}]*behavior: "instant"[^}]*\}/.exec(src);
+ assert.ok(jump,'scroll options must say behavior: "instant"');
+ for(const c of calls)assert.equal(c[1],jump[1]);
+});

@@ -362,9 +362,12 @@ function restoreHomeUi(ui) {
   }
   if (homeCollapse) {
     homeCollapse = false;
-    $(".home-folders")?.scrollIntoView({ block: "nearest" });
+    // Instant, not smooth: a second smooth scroll on the same scroller starts from the
+    // position the first has not reached yet, and replaces it.
+    const jump = { block: "nearest", inline: "nearest", behavior: "instant" };
+    $(".home-folders")?.scrollIntoView(jump);
     const card = homeRoving && findHomeKey("card:" + homeRoving);
-    (card || $(".folder-card"))?.scrollIntoView({ block: "nearest", inline: "nearest" });
+    (card || $(".folder-card"))?.scrollIntoView(jump);
   }
   homeUpdate();
 }
