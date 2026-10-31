@@ -875,6 +875,7 @@ function newNoteDialog(prefill = "", folder = current()?.folder) {
   );
 }
 function newFolder() {
+  if (!loaded) return;
   dialog(
     "New folder",
     `<label class="field-label" for="folder-name">Folder name</label><input class="field" id="folder-name" name="name" maxlength="80" required placeholder="A home for your notes">${actions("Create folder")}`,
