@@ -375,7 +375,7 @@ function homeSchedule() {
       homeUpdate();
     });
 }
-// Sticky head height, and the Prev / Next / Show all state (H2, H6).
+// Sticky head height, and the Prev / Next / Show all state.
 function homeUpdate() {
   const sc = $(".home-scroll");
   if (!sc) return;

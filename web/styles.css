@@ -1471,7 +1471,7 @@ button[aria-disabled="true"] {
   height: 100%;
   display: block;
 }
-/* Text-block scrim (option B): 0.55 black starts exactly at the top of the text, with an eased
+/* Text-block scrim: 0.55 black starts exactly at the top of the text, with an eased
    ramp above it. The block has no top padding, so the card's overflow clips the ramp. */
 .card-text {
   position: relative;
