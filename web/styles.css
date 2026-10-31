@@ -95,6 +95,7 @@ button.icon-button:hover {
 .workspace {
   display: grid;
   grid-template-columns: 48px 247px minmax(0, 1fr) 268px;
+  grid-template-rows: minmax(0, 1fr);
   height: calc(100dvh - var(--statusbar-h));
   overflow: hidden;
 }
@@ -146,6 +147,7 @@ button.icon-button:hover {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
 }
 .vault-name {
   display: flex;
@@ -264,6 +266,7 @@ button.icon-button:hover {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
   position: relative;
 }
 .tabs {
@@ -1647,9 +1650,6 @@ button[aria-disabled="true"] {
   .card-text {
     padding-top: 0;
   }
-}
-.workspace.home-view .main {
-  min-height: 0;
 }
 .recent-folder {
   min-width: 0;
