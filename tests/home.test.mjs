@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {createServer,FILES} from '../scripts/serve.mjs';
+import {esc} from '../web/markdown.js';
 import {art,cardArt,cardLabel,gridTarget,homeModel,plural,ROVING_MIN} from '../web/home.js';
 
 // Golden outputs of the approved card-art algorithm, copied as literals.
@@ -131,4 +132,28 @@ test('the server hands out /home.js with the JavaScript type, and only at that e
 test('home.js is a pure module: no DOM access',()=>{
  const src=readFileSync(new URL('../web/home.js',import.meta.url),'utf8');
  assert.ok(!/\b(document|window|localStorage|innerHTML)\b/.test(src));
+});
+
+// Render the real homeHTML/cardHTML from app.js (which needs a browser) with the DOM-free parts stubbed.
+const appSrc=readFileSync(new URL('../web/app.js',import.meta.url),'utf8');
+const homeSrc=appSrc.slice(appSrc.indexOf('const shortDate'),appSrc.indexOf('const bottomBar'));
+const renderHome=(v,showAll=false)=>new Function('esc','icon','cardArt','cardLabel','plural','homeModel','ROVING_MIN','vault','homeShowAll','homeRoving',
+ homeSrc+';return homeHTML()')(esc,n=>`<svg data-i="${n}"></svg>`,cardArt,cardLabel,plural,homeModel,ROVING_MIN,v,showAll,null);
+const skeleton=html=>html.replace(/"[^"]*"/g,'""').replace(/>[^<]*</g,'><');
+
+test('Home markup escapes hostile folder names, tags, titles and ids',()=>{
+ assert.ok(homeSrc.includes('function homeHTML')&&homeSrc.includes('function cardHTML'));
+ const evil=`"><img src=x onerror=alert(1)></style></svg><script>alert(2)</script>\`'&`;
+ const t='2026-01-01T00:00:00Z';
+ const mk=(f,tag,title,id)=>vault([f,'Empty '+f],[note(id,f,[tag],t,t,title),note(id+'2',f,[tag],'2025-01-01T00:00:00Z','2025-01-01T00:00:00Z',title+' 2')]);
+ for(const showAll of [false,true]){
+  const hostile=renderHome(mk(evil,evil,evil,evil),showAll),benign=renderHome(mk('Name','tag','Title','id1'),showAll);
+  assert.ok(!/<img|<script|<\/style|<\/svg><script/i.test(hostile.replace(/<\/svg>(?=<\/span>)/g,'')),'raw markup leaked');
+  assert.ok(!/onerror=/i.test(hostile.replace(/&quot;[^<]*?onerror=/g,'')),'attribute injection');
+  assert.ok(hostile.includes('&lt;img src=x onerror=alert(1)&gt;')&&hostile.includes('&lt;script&gt;'));
+  assert.equal(skeleton(hostile).length,skeleton(benign).length,'markup shape changed with hostile input');
+ }
+});
+test('every interpolated attribute in the Home markup is double-quoted',()=>{
+ assert.ok(!/=\$\{/.test(homeSrc),'unquoted attribute interpolation');
 });

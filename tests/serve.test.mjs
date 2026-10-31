@@ -34,7 +34,7 @@ test('the default port is the documented uncommon one',()=>{
  assert.equal(parsePort(undefined),4419);assert.equal(parsePort('5000'),5000);
  for(const bad of ['0','65536','abc','-1','1e3','80 ','08x'])assert.equal(parsePort(bad),null,bad);
 });
-test('the server serves exactly ten URL paths, nine files, with the right types',async()=>{
+test('the server serves exactly eleven URL paths, ten files, with the right types',async()=>{
  assert.equal(Object.keys(FILES).length,11);
  assert.equal(new Set(Object.values(FILES).map(f=>f.url.href)).size,10);
  for(const [path,f] of Object.entries(FILES)){
