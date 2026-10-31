@@ -28,7 +28,7 @@ test('no button template inside a dialog body omits its type',()=>{
  const dialogs=appSrc.slice(appSrc.indexOf('function newNoteDialog'));
  for(const m of dialogs.matchAll(/<button\b[^>]*>/g)){
   const tag=m[0];
-  if(/command-result/.test(tag))continue; // search palette results sit outside any form
+  if(/data-add-card|data-note/.test(tag))continue; // search palette results sit outside any form
   assert.match(tag,/\btype="(button|submit)"/,tag);
  }
 });

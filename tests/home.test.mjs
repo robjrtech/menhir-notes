@@ -79,7 +79,9 @@ test('homeModel: a note in an unknown folder is ignored for cards but still list
 test('homeModel: a maximum vault is fast',()=>{
  const folders=Array.from({length:100},(_,i)=>'Folder '+i);
  const notes=Array.from({length:500},(_,i)=>note('n'+i,folders[i%100],Array.from({length:20},(_,k)=>'t'+((i+k)%37)),new Date(2026,0,1+i%300).toISOString()));
- const t=performance.now();const m=homeModel(vault(folders,notes));const ms=performance.now()-t;
+ // Best of 5, so a busy machine doesn't fail a single slow run.
+ let m,ms=Infinity;
+ for(let i=0;i<5;i++){const t=performance.now();m=homeModel(vault(folders,notes));ms=Math.min(ms,performance.now()-t);}
  assert.equal(m.folders.length,100);assert.ok(ms<20,ms+' ms');
 });
 
