@@ -25,6 +25,14 @@ import {
   browserLocks,
   idbHandleStore,
 } from "./filesync.js";
+import {
+  ROVING_MIN,
+  cardArt,
+  cardLabel,
+  gridTarget,
+  homeModel,
+  plural,
+} from "./home.js";
 const $ = (s, root = document) => root.querySelector(s);
 const icons = {
   file: "M6 3h8l4 4v14H6z M14 3v5h4",
@@ -60,11 +68,12 @@ const icons = {
   clock: "M12 8v5l3 2M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0",
   help: "M9 8a3 3 0 1 1 5 2c-2 1-2 2-2 4M12 18h.01M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0",
   expand: "M8 3H3v5M16 3h5v5M21 16v5h-5M8 21H3v-5",
+  home: "M3 11l9-8 9 8M5 9.5V21h5v-6h4v6h5V9.5",
 };
 const icon = (name) =>
   `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="${icons[name] || icons.file}"/></svg>`;
-const ib = (i, label, action, extra = "") =>
-  `<button class="icon-button ${extra}" title="${esc(label)}" aria-label="${esc(label)}" data-action="${action}">${icon(i)}</button>`;
+const ib = (i, label, action, extra = "", current = false) =>
+  `<button class="icon-button ${extra}" title="${esc(label)}" aria-label="${esc(label)}" data-action="${action}"${current ? ' aria-current="page"' : ""}>${icon(i)}</button>`;
 function seedVault() {
   const vault = {
   version: 1,
@@ -155,7 +164,7 @@ let vault = emptyVault();
 let active = null,
   tabs = [],
   mode = "read",
-  view = "note",
+  view = "home",
   rightTab = "links",
   collapsed = new Set(),
   showFiles = false,
@@ -166,8 +175,10 @@ let active = null,
 const current = () => vault.notes.find((n) => n.id === active);
 function render() {
   let n = current();
+  const ui = saveHomeUi();
+  $("#app").className = view === "home" ? "is-home" : "";
   $("#app").innerHTML =
-    `<div class="workspace ${showFiles ? "show-files" : ""} ${showContext ? "show-context" : ""} ${hideFiles ? "no-files" : ""} ${hideContext ? "no-context" : ""}"><nav class="rail" aria-label="Workspace tools"><div class="brand" title="${esc(BRAND.name)}">${BRAND.glyph}</div>${ib("file", "Notes", "notes", view === "note" ? "active" : "")}${ib("search", "Search notes (⌘ K)", "search")}${ib("graph", "Graph view", "graph", view === "graph" ? "active" : "")}${ib("canvas", "Canvas", "canvas", view === "canvas" ? "active" : "")}${ib("calendar", "Open daily note", "daily")}<div class="rail-bottom">${ib("help", "Keyboard shortcuts", "help")}${ib("settings", "Settings", "settings")}</div></nav><aside class="files" aria-label="Notes and folders"><div class="vault-name">${icon("book")} Personal space <small>⌄</small>${ib("x", "Close files", "files", "mobile-close")}</div><button class="search-trigger" data-action="search">${icon("search")}<span>Quick switcher</span><kbd>⌘ K</kbd></button><div class="section-title">FILES <span class="tools">${ib("plus", "New note (⌘ N)", "new")}${ib("folder", "New folder", "folder")}${ib("down", "Collapse or expand folders", "collapse")}</span></div><div class="file-tree">${tree()}</div><div class="mobile-tools">${ib("graph", "Graph view", "graph")}${ib("canvas", "Canvas", "canvas")}${ib("calendar", "Open daily note", "daily")}${ib("settings", "Settings", "settings")}</div><div class="vault-footer">${icon("cloud")} ${storageFooter({ loading, loaded, storageDown })}</div></aside><main class="main"><div class="tabs"><div class="tabs-scroll" role="group" aria-label="Open notes">${tabs
+    `<div class="workspace ${showFiles ? "show-files" : ""} ${showContext ? "show-context" : ""} ${hideFiles ? "no-files" : ""} ${hideContext || view === "home" ? "no-context" : ""} ${view === "home" ? "home-view" : ""}"><nav class="rail" aria-label="Workspace tools"><div class="brand" title="${esc(BRAND.name)}">${BRAND.glyph}</div>${ib("home", "Home", "home", view === "home" ? "active" : "", view === "home")}${ib("file", "Notes", "notes", view === "note" ? "active" : "", view === "note")}${ib("search", "Search notes (⌘ K)", "search")}${ib("graph", "Graph view", "graph", view === "graph" ? "active" : "", view === "graph")}${ib("canvas", "Canvas", "canvas", view === "canvas" ? "active" : "", view === "canvas")}${ib("calendar", "Open daily note", "daily")}<div class="rail-bottom">${ib("help", "Keyboard shortcuts", "help")}${ib("settings", "Settings", "settings")}</div></nav><aside class="files" aria-label="Notes and folders"><div class="vault-name">${icon("book")} Personal space <small>⌄</small>${ib("x", "Close files", "files", "mobile-close")}</div><button class="search-trigger" data-action="search">${icon("search")}<span>Quick switcher</span><kbd>⌘ K</kbd></button><div class="section-title">FILES <span class="tools">${ib("plus", "New note (⌘ N)", "new")}${ib("folder", "New folder", "folder")}${ib("down", "Collapse or expand folders", "collapse")}</span></div><div class="file-tree">${tree()}</div><div class="mobile-tools">${ib("home", "Home", "home", view === "home" ? "active" : "", view === "home")}${ib("search", "Search notes", "search")}${ib("graph", "Graph view", "graph")}${ib("canvas", "Canvas", "canvas")}${ib("calendar", "Open daily note", "daily")}${ib("settings", "Settings", "settings")}</div><div class="vault-footer">${icon("cloud")} ${storageFooter({ loading, loaded, storageDown })}</div></aside><main class="main"><div class="tabs"><div class="tabs-scroll" role="group" aria-label="Open notes">${tabs
       .map((id) => {
         let t = vault.notes.find((x) => x.id === id);
         return t
@@ -176,8 +187,9 @@ function render() {
       })
       .join(
         "",
-      )}</div>${ib("plus", "New note", "new")}${ib("rightPanel", "Toggle context sidebar", "context", "right")}</div><div class="document-toolbar">${ib("panel", "Toggle files", "files")}${ib("left", "Previous note", "back", "history")}${ib("right", "Next note", "forward", "history")}<div class="breadcrumb"><span>${esc(view === "note" ? n?.folder || "Notes" : "Personal space")}</span>${icon("chevron")}<span>${esc(view === "note" ? n?.title || "No open note" : view === "graph" ? "Graph view" : "Canvas")}</span></div>${view === "note" && n ? `<button class="mode-button" data-action="mode" title="Toggle edit and read (⌘ E)">${icon(mode === "read" ? "edit" : "book")}${mode === "read" ? "Edit note" : "Reading view"}</button>${ib("more", "Note actions", "more")}` : ""}</div><div id="save-alert" class="hidden"></div><div id="file-alert" class="hidden" role="status"></div>${view === "note" ? `<div class="document-scroll"><article class="document">${n ? noteHTML(n) : '<div class="empty"><h1>A little room to think.</h1><p>Create a note to get started.</p><button class="primary-button" data-action="new">Create a note</button></div>'}</article></div>` : specialView()}</main><aside class="context" aria-label="Note context"><div class="context-tabs">${ib("link", "Backlinks", "right-links", rightTab === "links" ? "active" : "")}${ib("list", "Outline", "right-outline", rightTab === "outline" ? "active" : "")}${ib("hash", "Tags", "right-tags", rightTab === "tags" ? "active" : "")}<span style="flex:1"></span>${ib("rightPanel", "Close context", "context")}</div>${contextHTML(n)}</aside></div><footer class="statusbar"><span class="save-status">${icon("cloud")}<span id="save-status" class="${isErrorState() ? "is-error" : ""}">${esc(saveLabel)}</span></span><button id="backup-reminder" data-action="backup" class="${backupDue() ? "" : "hidden"}" title="It has been over a week since your last backup">Back up now</button><span class="spacer"></span><button data-action="context">${n ? backlinks(n).length : 0} backlinks</button><span class="optional">${vault.notes.length} notes</span><span id="word-count">${n ? words(n.body) : 0} words</span><span class="optional" id="char-count">${n ? n.body.length : 0} characters</span>${ib("settings", "Settings", "settings")}</footer>`;
+      )}</div>${ib("plus", "New note", "new")}${ib("rightPanel", "Toggle context sidebar", "context", "right")}</div><div class="document-toolbar">${ib("panel", "Toggle files", "files")}${ib("left", "Previous note", "back", "history")}${ib("right", "Next note", "forward", "history")}<div class="breadcrumb"><span>${esc(view === "note" ? n?.folder || "Notes" : "Personal space")}</span>${icon("chevron")}<span>${esc(view === "home" ? "Home" : view === "note" ? n?.title || "No open note" : view === "graph" ? "Graph view" : "Canvas")}</span></div>${view === "note" && n ? `<button class="mode-button" data-action="mode" title="Toggle edit and read (⌘ E)">${icon(mode === "read" ? "edit" : "book")}${mode === "read" ? "Edit note" : "Reading view"}</button>${ib("more", "Note actions", "more")}` : ""}</div><div id="save-alert" class="hidden"></div><div id="file-alert" class="hidden" role="status"></div>${view === "home" ? homeHTML() : view === "note" ? `<div class="document-scroll"><article class="document">${n ? noteHTML(n) : '<div class="empty"><h1>A little room to think.</h1><p>Create a note to get started.</p><button class="primary-button" data-action="new">Create a note</button></div>'}</article></div>` : specialView()}</main><aside class="context" aria-label="Note context"><div class="context-tabs">${ib("link", "Backlinks", "right-links", rightTab === "links" ? "active" : "")}${ib("list", "Outline", "right-outline", rightTab === "outline" ? "active" : "")}${ib("hash", "Tags", "right-tags", rightTab === "tags" ? "active" : "")}<span style="flex:1"></span>${ib("rightPanel", "Close context", "context")}</div>${contextHTML(n)}</aside></div><footer class="statusbar"><span class="save-status">${icon("cloud")}<span id="save-status" class="${isErrorState() ? "is-error" : ""}">${esc(saveLabel)}</span></span><button id="backup-reminder" data-action="backup" class="${backupDue() ? "" : "hidden"}" title="It has been over a week since your last backup">Back up now</button><span class="spacer"></span><button data-action="context">${n ? backlinks(n).length : 0} backlinks</button><span class="optional">${vault.notes.length} notes</span><span id="word-count">${n ? words(n.body) : 0} words</span><span class="optional" id="char-count">${n ? n.body.length : 0} characters</span>${ib("settings", "Settings", "settings")}</footer>${view === "home" ? bottomBar() : ""}`;
   renderAlerts();
+  restoreHomeUi(ui);
 }
 function tree() {
   return (
@@ -272,6 +284,164 @@ function graphHTML(mini = false) {
   }));
   return `<svg class="${mini ? "graph-mini" : "full-graph"}" viewBox="0 0 ${w} ${h}" role="group" aria-label="${mini ? "Local" : "Vault"} note connections">${coords.flatMap((a) => coords.filter((b) => a.n.body.includes("[[" + b.n.title + "]]")).map((b) => `<line class="graph-lines" x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}"/>`)).join("")}${coords.map((a) => `<g class="graph-node ${a.n.id === active ? "active" : ""}" data-note="${a.n.id}" tabindex="0" role="button" aria-label="Open ${esc(a.n.title)}" transform="translate(${a.x},${a.y})"><circle r="${mini ? (a.n.id === active ? 6 : 4) : a.n.id === active ? 10 : 7}"/><text text-anchor="middle" y="${mini ? 18 : 26}">${esc(mini ? a.n.title.split(" ").slice(0, 2).join(" ") : a.n.title)}</text></g>`).join("")}</svg>`;
 }
+// -- Home view ----------------------------------------------------------------------------
+// Everything here lives in JS state, because render() rebuilds the whole page: the Show all
+// toggle, the card that holds the Tab stop, and (via saveHomeUi/restoreHomeUi) focus and scroll.
+let homeShowAll = false,
+  homeRoving = null,
+  homeCollapse = false,
+  homeObserver = null,
+  homeFrame = 0;
+const shortDate = (s) => {
+  const t = Date.parse(s);
+  return Number.isNaN(t)
+    ? ""
+    : new Date(t).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+};
+function cardHTML(f, tabStop) {
+  const a = cardArt(f.name);
+  const empty = !f.newest || !f.count;
+  const target = empty
+    ? `data-new-in="${esc(f.name)}"`
+    : `data-note="${esc(f.newest.id)}"`;
+  return `<li><button type="button" class="folder-card" ${target} data-home-key="card:${esc(f.name)}" aria-label="${esc(cardLabel(f))}"${tabStop ? "" : ' tabindex="-1"'}><span class="art" style="${a.style}" aria-hidden="true"><span class="art-sun"></span><svg viewBox="0 0 100 130" preserveAspectRatio="none" aria-hidden="true" focusable="false">${a.ridges.map((r) => `<path d="${r.d}" fill="${r.fill}"/>`).join("")}</svg></span><span class="card-text">${f.tag ? `<span class="card-tag">${esc(f.tag)}</span>` : ""}<span class="card-title">${esc(f.name)}</span><span class="card-count">${plural(f.count, "note")}</span></span></button></li>`;
+}
+function homeHTML() {
+  const m = homeModel(vault);
+  const hero = `<div class="home-hero"><h1>Home</h1><p>${esc(m.summary)}</p></div>`;
+  if (!vault.notes.length)
+    return `<div class="home-scroll"><div class="home">${hero}<div class="home-empty"><h2>No notes yet</h2><p>Make a note, or start with a folder to keep things together.</p><div class="home-actions"><button class="primary-button" data-action="folder">New folder</button><button class="secondary-button" data-action="new">New note</button></div></div></div></div>`;
+  const rovingOn = m.folders.length >= ROVING_MIN;
+  const rov = m.folders.some((f) => f.name === homeRoving)
+    ? homeRoving
+    : m.folders[0]?.name;
+  const ctl = (kind, label, i, extra = "") =>
+    `<button type="button" class="icon-button home-ctl ${extra}" data-home="${kind}" data-home-key="ctl:${kind}" aria-label="${label}" aria-disabled="${kind === "prev"}">${icon(i)}</button>`;
+  return `<div class="home-scroll ${homeShowAll ? "show-all" : ""}"><div class="home">${hero}<section class="home-folders" aria-labelledby="folders-h"><div class="home-head"><h2 id="folders-h">Folders</h2><div class="home-controls"><button type="button" class="secondary-button" data-home="toggle" data-home-key="ctl:showall">${homeShowAll ? "Show fewer" : "Show all"}</button>${homeShowAll ? "" : ctl("prev", "Previous folders", "left") + ctl("next", "Next folders", "right")}</div></div><ul class="${homeShowAll ? "folder-grid" : "folder-row"}" role="list">${m.folders.map((f) => cardHTML(f, !rovingOn || f.name === rov)).join("")}</ul></section><section class="home-recent" aria-labelledby="recent-h"><h2 id="recent-h">Recent notes</h2><ul role="list">${m.recent.map((r) => `<li><button type="button" class="recent-row" data-note="${esc(r.id)}" data-home-key="recent:${esc(r.id)}">${icon("file")}<span class="recent-title">${esc(r.title)}</span><span class="recent-meta recent-folder">${esc(r.folder)}</span><span class="recent-meta">${esc(shortDate(r.updatedAt))}</span>${icon("chevron")}</button></li>`).join("")}</ul></section><div class="home-actions"><button class="secondary-button new-folder" data-action="folder">${icon("plus")} New folder</button></div></div></div>`;
+}
+const bottomBar = () =>
+  `<nav class="bottom-bar" aria-label="Home navigation">${ib("home", "Home", "home", "active", true)}${ib("search", "Search notes", "search")}${ib("graph", "Graph view", "graph")}${ib("canvas", "Canvas", "canvas")}${ib("calendar", "Open daily note", "daily")}${ib("settings", "Settings", "settings")}</nav>`;
+// Stable key for the focused control, so focus survives the full re-render.
+function homeKeyOf(el) {
+  if (!el?.closest) return null;
+  const k = el.closest("[data-home-key]");
+  if (k) return k.dataset.homeKey;
+  const box = el.closest(".rail") ? "rail" : el.closest(".bottom-bar") ? "bar" : null;
+  const act = el.closest("[data-action]")?.dataset.action;
+  return box && act ? box + ":" + act : null;
+}
+function findHomeKey(key) {
+  const m = /^(rail|bar):(.+)$/.exec(key);
+  if (m)
+    return $(`${m[1] === "rail" ? ".rail" : ".bottom-bar"} [data-action="${m[2]}"]`);
+  return [...document.querySelectorAll("[data-home-key]")].find(
+    (el) => el.dataset.homeKey === key,
+  );
+}
+function saveHomeUi() {
+  return {
+    key: homeKeyOf(document.activeElement),
+    top: $(".home-scroll")?.scrollTop ?? null,
+    left: $(".folder-row")?.scrollLeft ?? null,
+  };
+}
+function restoreHomeUi(ui) {
+  const sc = $(".home-scroll"),
+    row = $(".folder-row");
+  homeObserver?.disconnect();
+  if (sc) {
+    homeObserver ||= new ResizeObserver(() => homeUpdate());
+    for (const el of [sc, row, $(".home-head")]) if (el) homeObserver.observe(el);
+    row?.addEventListener("scroll", homeSchedule, { passive: true });
+    if (ui.top != null) sc.scrollTo({ top: ui.top, behavior: "instant" });
+    if (row && ui.left != null) row.scrollTo({ left: ui.left, behavior: "instant" });
+  }
+  if (ui.key) {
+    const el = findHomeKey(ui.key);
+    if (el && el !== document.activeElement) el.focus({ preventScroll: true });
+  }
+  if (homeCollapse) {
+    homeCollapse = false;
+    $(".home-folders")?.scrollIntoView({ block: "nearest" });
+    const card = homeRoving && findHomeKey("card:" + homeRoving);
+    (card || $(".folder-card"))?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }
+  homeUpdate();
+}
+function homeSchedule() {
+  if (!homeFrame)
+    homeFrame = requestAnimationFrame(() => {
+      homeFrame = 0;
+      homeUpdate();
+    });
+}
+// Sticky head height, and the Prev / Next / Show all state (H2, H6).
+function homeUpdate() {
+  const sc = $(".home-scroll");
+  if (!sc) return;
+  const head = $(".home-head");
+  if (head) sc.style.setProperty("--home-sticky-h", head.offsetHeight + "px");
+  const toggle = $('[data-home="toggle"]'),
+    prev = $('[data-home="prev"]'),
+    next = $('[data-home="next"]'),
+    row = $(".folder-row");
+  if (!toggle) return;
+  if (!row) {
+    toggle.classList.remove("hidden");
+    return;
+  }
+  const overflow = row.scrollWidth > row.clientWidth + 1;
+  for (const b of [toggle, prev, next]) b?.classList.toggle("hidden", !overflow);
+  prev?.setAttribute("aria-disabled", String(row.scrollLeft <= 1));
+  next?.setAttribute(
+    "aria-disabled",
+    String(row.scrollLeft + row.clientWidth >= row.scrollWidth - 1),
+  );
+}
+function homeControl(kind) {
+  if (kind === "toggle") {
+    homeCollapse = homeShowAll;
+    homeShowAll = !homeShowAll;
+    render();
+    return;
+  }
+  const row = $(".folder-row"),
+    btn = $(`[data-home="${kind}"]`);
+  if (!row || btn?.getAttribute("aria-disabled") === "true") return;
+  const w = row.querySelector(".folder-card")?.offsetWidth ?? 0;
+  const step = Math.max(row.clientWidth - w, w);
+  row.scrollBy({ left: kind === "next" ? step : -step }); // smoothness comes from CSS only
+}
+function homeKey(e) {
+  const cards = [...document.querySelectorAll(".folder-card")],
+    i = cards.indexOf(e.target);
+  if (i < 0) return;
+  let cols = cards.length;
+  if (homeShowAll) {
+    const top = cards[0].getBoundingClientRect().top;
+    cols = cards.filter((c) => Math.abs(c.getBoundingClientRect().top - top) < 2).length;
+  } else if (e.key === "ArrowUp" || e.key === "ArrowDown") return;
+  const t = gridTarget(i, e.key, cols, cards.length);
+  if (t < 0) return;
+  e.preventDefault();
+  cards[t].focus({ preventScroll: true });
+  cards[t].scrollIntoView({ block: "nearest", inline: "nearest" });
+}
+document.addEventListener("focusin", (e) => {
+  const card = e.target instanceof Element && e.target.closest(".folder-card");
+  if (!card) return;
+  homeRoving = card.dataset.homeKey.slice(5);
+  const all = document.querySelectorAll(".folder-card");
+  if (all.length >= ROVING_MIN) for (const c of all) c.tabIndex = c === card ? 0 : -1;
+  // 2.4.11: browsers don't all apply scroll-padding to Tab focus, so keep the card out from
+  // under the sticky head by hand.
+  const head = $(".home-head"),
+    sc = $(".home-scroll");
+  if (homeShowAll && head && sc && card.closest(".folder-grid")) {
+    const gap = card.getBoundingClientRect().top - (head.getBoundingClientRect().bottom + 6);
+    if (gap < 0) sc.scrollBy({ top: gap, behavior: "instant" });
+  }
+});
 function specialView() {
   return `<section class="graph-page"><div class="view-heading"><div><h1>${view === "graph" ? "A web of ideas" : "Your thinking canvas"}</h1><p>${view === "graph" ? `${vault.notes.length} notes. A growing constellation of connections.` : "Arrange your notes. Make room for a new perspective."}</p></div><div class="view-actions">${view === "canvas" ? '<button class="secondary-button" data-action="canvas-add">+ Add a note</button>' : ""}</div></div>${
     view === "graph"
@@ -684,11 +854,11 @@ function createNote(title, folder, body = "") {
   changed();
   return n;
 }
-function newNoteDialog(prefill = "") {
+function newNoteDialog(prefill = "", folder = current()?.folder) {
   if (!loaded) return;
   dialog(
     "A new thought",
-    `<label class="field-label" for="new-title">Note title</label><input class="field" id="new-title" name="title" placeholder="Untitled" value="${esc(prefill)}" maxlength="120" required><label class="field-label" for="new-folder">Folder</label><select class="field" id="new-folder" name="folder">${vault.folders.map((f) => `<option ${f === current()?.folder ? "selected" : ""}>${esc(f)}</option>`).join("")}</select>${actions("Create note")}`,
+    `<label class="field-label" for="new-title">Note title</label><input class="field" id="new-title" name="title" placeholder="Untitled" value="${esc(prefill)}" maxlength="120" required><label class="field-label" for="new-folder">Folder</label><select class="field" id="new-folder" name="folder">${vault.folders.map((f) => `<option ${f === folder ? "selected" : ""}>${esc(f)}</option>`).join("")}</select>${actions("Create note")}`,
     (form) => {
       const n = createNote(form.get("title").trim(), form.get("folder"));
       closeDialog();
@@ -1045,6 +1215,11 @@ async function handleAction(action) {
       showFiles = false;
       render();
       break;
+    case "home":
+      view = "home";
+      showFiles = false;
+      render();
+      break;
     case "notes":
       view = "note";
       render();
@@ -1301,6 +1476,16 @@ async function handleAction(action) {
 }
 document.addEventListener("click", async (e) => {
   try {
+    const hc = e.target.closest("[data-home]");
+    if (hc) {
+      homeControl(hc.dataset.home);
+      return;
+    }
+    const nf = e.target.closest("[data-new-in]");
+    if (nf) {
+      newNoteDialog("", nf.dataset.newIn);
+      return;
+    }
     const node = e.target.closest("[data-note]");
     if (node) {
       if (modal.open) closeDialog();
@@ -1328,7 +1513,7 @@ document.addEventListener("click", async (e) => {
       tabs = tabs.filter((x) => x !== close.dataset.close);
       if (active === close.dataset.close) {
         active = tabs.at(-1);
-        view = "note";
+        if (view !== "home") view = "note";
       }
       render();
       return;
@@ -1432,6 +1617,14 @@ document.addEventListener("change", (e) => {
 });
 document.addEventListener("keydown", (e) => {
   if (
+    e.target.matches?.(".folder-card") &&
+    !e.altKey &&
+    !e.ctrlKey &&
+    !e.metaKey &&
+    !e.shiftKey
+  )
+    homeKey(e);
+  if (
     (e.metaKey || e.ctrlKey) &&
     ["k", "n", "e", "s"].includes(e.key.toLowerCase())
   ) {
@@ -1444,9 +1637,10 @@ document.addEventListener("keydown", (e) => {
     if (key === "s") saveVault();
   }
   if (e.key === "Escape") {
+    const drawerOpen = showFiles || showContext;
     showFiles = false;
     showContext = false;
-    if (!modal.open) render();
+    if (drawerOpen && !modal.open) render();
   }
   if ((e.key === "Enter" || e.key === " ") && e.target.matches(".graph-node")) {
     e.preventDefault();
