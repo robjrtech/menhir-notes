@@ -4,7 +4,7 @@ import { pathToFileURL } from "node:url";
 import { localOrigin, canonicalURL } from "./local-host.mjs";
 import { logEvent as defaultLog } from "./log.mjs";
 
-// The server only hands out these nine fixed files. It never builds a file path from the
+// The server only hands out these ten fixed files. It never builds a file path from the
 // request and never reads a request body, so no data passes through it.
 const TYPES = {
   html: "text/html; charset=utf-8",
@@ -25,6 +25,7 @@ export const FILES = Object.freeze({
   "/brand.js": entry("brand.js", "js"),
   "/model.js": entry("model.js", "js"),
   "/markdown.js": entry("markdown.js", "js"),
+  "/home.js": entry("home.js", "js"),
   "/styles.css": entry("styles.css", "css"),
 });
 
