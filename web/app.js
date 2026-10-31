@@ -73,7 +73,7 @@ const icons = {
 const icon = (name) =>
   `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="${icons[name] || icons.file}"/></svg>`;
 const ib = (i, label, action, extra = "", current = false) =>
-  `<button class="icon-button ${extra}" title="${esc(label)}" aria-label="${esc(label)}" data-action="${action}"${current ? ' aria-current="page"' : ""}>${icon(i)}</button>`;
+  `<button type="button" class="icon-button ${extra}" title="${esc(label)}" aria-label="${esc(label)}" data-action="${action}"${current ? ' aria-current="page"' : ""}>${icon(i)}</button>`;
 function seedVault() {
   const vault = {
   version: 1,
