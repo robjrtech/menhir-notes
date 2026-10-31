@@ -433,13 +433,19 @@ document.addEventListener("focusin", (e) => {
   homeRoving = card.dataset.homeKey.slice(5);
   const all = document.querySelectorAll(".folder-card");
   if (all.length >= ROVING_MIN) for (const c of all) c.tabIndex = c === card ? 0 : -1;
-  // 2.4.11: browsers don't all apply scroll-padding to Tab focus, so keep the card out from
-  // under the sticky head by hand.
+  // 2.4.11: Chrome doesn't apply scroll-padding to this focus scroll, and the page scrolls
+  // smoothly, so measure after the browser's own scroll has settled and correct by hand.
   const head = $(".home-head"),
     sc = $(".home-scroll");
   if (homeShowAll && head && sc && card.closest(".folder-grid")) {
-    const gap = card.getBoundingClientRect().top - (head.getBoundingClientRect().bottom + 6);
-    if (gap < 0) sc.scrollBy({ top: gap, behavior: "instant" });
+    const fix = () => {
+      if (!card.isConnected || !head.isConnected) return;
+      const gap = card.getBoundingClientRect().top - (head.getBoundingClientRect().bottom + 6);
+      if (gap < 0) sc.scrollBy({ top: gap, behavior: "instant" });
+    };
+    requestAnimationFrame(fix);
+    sc.addEventListener("scrollend", fix, { once: true });
+    setTimeout(fix, 500);
   }
 });
 function specialView() {
