@@ -73,7 +73,7 @@ const icons = {
 const icon = (name) =>
   `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="${icons[name] || icons.file}"/></svg>`;
 const ib = (i, label, action, extra = "", current = false) =>
-  `<button class="icon-button ${extra}" title="${esc(label)}" aria-label="${esc(label)}" data-action="${action}"${current ? ' aria-current="page"' : ""}>${icon(i)}</button>`;
+  `<button type="button" class="icon-button ${extra}" title="${esc(label)}" aria-label="${esc(label)}" data-action="${action}"${current ? ' aria-current="page"' : ""}>${icon(i)}</button>`;
 function seedVault() {
   const vault = {
   version: 1,
@@ -362,9 +362,12 @@ function restoreHomeUi(ui) {
   }
   if (homeCollapse) {
     homeCollapse = false;
-    $(".home-folders")?.scrollIntoView({ block: "nearest" });
+    // Instant, not smooth: a second smooth scroll on the same scroller starts from the
+    // position the first has not reached yet, and replaces it.
+    const jump = { block: "nearest", inline: "nearest", behavior: "instant" };
+    $(".home-folders")?.scrollIntoView(jump);
     const card = homeRoving && findHomeKey("card:" + homeRoving);
-    (card || $(".folder-card"))?.scrollIntoView({ block: "nearest", inline: "nearest" });
+    (card || $(".folder-card"))?.scrollIntoView(jump);
   }
   homeUpdate();
 }
@@ -792,7 +795,10 @@ async function saveVault() {
   }
 }
 function dialog(title, body, onSubmit) {
-  modal.onkeydown = null;
+  // Auto-repeated Enter from a held key on the opener must not submit the new dialog.
+  modal.onkeydown = (e) => {
+    if (e.key === "Enter" && e.repeat) e.preventDefault();
+  };
   lastFocus = document.activeElement;
   modal.innerHTML = `<form id="dialog-form"><div class="dialog-head"><h2>${esc(title)}</h2>${ib("x", "Close dialog", "close-modal")}</div><div class="dialog-body">${body}<p id="dialog-error" class="error-text" role="alert"></p></div></form>`;
   if (!modal.open) modal.showModal();
