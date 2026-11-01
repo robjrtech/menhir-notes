@@ -59,3 +59,14 @@ test('deleting a note refocuses the tab of the note now shown, or the empty-stat
  const src=between('case "delete":','case "help":');
  assert.match(src,/closeDialog\(\);[^]*?restoreFocus = "\.tab\.active \.label, \.empty button";\s*render\(\);/);
 });
+test('a palette opened over a dialog keeps the dialog opener as the return target',()=>{
+ const src=between('function commandPalette(','const input = $("#command-query")');
+ assert.match(src,/if \(!modal\.open\) lastFocus = document\.activeElement;/);
+ assert.doesNotMatch(src,/^\s*lastFocus = document\.activeElement;/m);
+});
+test('picking a palette result moves focus into the opened note, whether or not a dialog was under it',()=>{
+ const src=between('const node = e.target.closest("[data-note]")','const wiki =');
+ assert.match(src,/const picked = modal\.open;\s*if \(picked\) closeDialog\(\);\s*openNote\(node\.dataset\.note\);\s*if \(picked\) focusNote\(\);/);
+ assert.match(appSrc,/const focusNote = \(\) => \(\$\("#editor"\) \|\| \$\("\.note-title"\)\)\?\.focus\(\);/);
+ assert.match(appSrc,/<h1 class="note-title" tabindex="-1">/);
+});

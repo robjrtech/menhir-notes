@@ -232,7 +232,7 @@ function backlinks(n) {
   );
 }
 function noteHTML(n) {
-  return `<div class="note-eyebrow">${icon("file")} ${esc(n.folder)} <span> / </span> ${esc(new Date(n.updatedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }))}</div>${mode === "read" ? `<h1 class="note-title">${esc(n.title)}</h1>` : `<input aria-label="Note title" class="note-title-input" id="note-title" value="${esc(n.title)}" maxlength="120">`}<div class="tags">${n.tags.map((t) => `<button class="tag" data-tag="${esc(t)}"># ${esc(t)}</button>`).join("")}${mode === "edit" ? '<button class="tag" data-action="tags">+ tags</button>' : ""}</div>${mode === "read" ? `<div class="prose">${markdown(n.body)}</div>` : `<textarea class="editor" id="editor" aria-label="Markdown note content" spellcheck="true">${esc(n.body)}</textarea><p class="editor-help">Markdown supported · [[link a note]] · ⌘ E to preview</p>`}<div class="note-tail"><span>${icon("link")} ${backlinks(n).length} linked mentions</span><span>Personal space</span></div>`;
+  return `<div class="note-eyebrow">${icon("file")} ${esc(n.folder)} <span> / </span> ${esc(new Date(n.updatedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }))}</div>${mode === "read" ? `<h1 class="note-title" tabindex="-1">${esc(n.title)}</h1>` : `<input aria-label="Note title" class="note-title-input" id="note-title" value="${esc(n.title)}" maxlength="120">`}<div class="tags">${n.tags.map((t) => `<button class="tag" data-tag="${esc(t)}"># ${esc(t)}</button>`).join("")}${mode === "edit" ? '<button class="tag" data-action="tags">+ tags</button>' : ""}</div>${mode === "read" ? `<div class="prose">${markdown(n.body)}</div>` : `<textarea class="editor" id="editor" aria-label="Markdown note content" spellcheck="true">${esc(n.body)}</textarea><p class="editor-help">Markdown supported · [[link a note]] · ⌘ E to preview</p>`}<div class="note-tail"><span>${icon("link")} ${backlinks(n).length} linked mentions</span><span>Personal space</span></div>`;
 }
 function contextHTML(n) {
   if (!n) return '<p class="empty">Open a note to see its connections.</p>';
@@ -829,6 +829,7 @@ function closeDialog() {
   restoreFocus = action ? `[data-action="${action}"]` : null;
   queueMicrotask(() => (restoreFocus = null));
 }
+const focusNote = () => ($("#editor") || $(".note-title"))?.focus();
 modal.addEventListener("click", (e) => {
   if (e.target === modal) closeDialog();
 });
@@ -1083,7 +1084,8 @@ function settings() {
   fillSettings();
 }
 function commandPalette(query = "", canvas = false) {
-  lastFocus = document.activeElement;
+  // Over an open dialog the focused element belongs to the content this replaces.
+  if (!modal.open) lastFocus = document.activeElement;
   modal.innerHTML = `<input class="command-search" aria-label="${canvas ? "Find a note for your canvas" : "Search your notes"}" placeholder="${canvas ? "Add a note to your canvas…" : "Search notes, ideas, anything…"}" id="command-query" value="${esc(query)}"><div class="command-results" id="command-results"></div><div class="command-footer">↑ ↓ to navigate &nbsp; ↵ to open &nbsp; esc to close</div>`;
   if (!modal.open) modal.showModal();
   const input = $("#command-query");
@@ -1514,8 +1516,10 @@ document.addEventListener("click", async (e) => {
     }
     const node = e.target.closest("[data-note]");
     if (node) {
-      if (modal.open) closeDialog();
+      const picked = modal.open;
+      if (picked) closeDialog();
       openNote(node.dataset.note);
+      if (picked) focusNote();
       return;
     }
     const wiki = e.target.closest("[data-wiki]");
