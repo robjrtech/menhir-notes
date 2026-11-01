@@ -48,3 +48,14 @@ test('the replaced-dialog focus never lands on a submit button, since the Close 
  const src=between('function dialog(','function closeDialog');
  assert.ok(src.indexOf('Close dialog')<src.indexOf('${body}'));
 });
+test('closing a dialog leaves a hint that render() resolves in the new page, then clears',()=>{
+ const close=between('function closeDialog(','const focusNote');
+ assert.match(close,/restoreFocus = action \? `\[data-action="\$\{action\}"\]` : null;/);
+ assert.match(close,/queueMicrotask\(\(\) => \(restoreFocus = null\)\)/);
+ const render=between('function render(','function tree(');
+ assert.match(render,/restoreHomeUi\(ui\);\s*if \(restoreFocus\) \$\("#app " \+ restoreFocus\)\?\.focus\(\);\s*restoreFocus = null;/);
+});
+test('deleting a note refocuses the tab of the note now shown, or the empty-state button',()=>{
+ const src=between('case "delete":','case "help":');
+ assert.match(src,/closeDialog\(\);[^]*?restoreFocus = "\.tab\.active \.label, \.empty button";\s*render\(\);/);
+});
