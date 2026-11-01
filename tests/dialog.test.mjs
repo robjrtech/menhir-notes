@@ -50,14 +50,14 @@ test('the replaced-dialog focus never lands on a submit button, since the Close 
 });
 test('closing a dialog leaves a hint that render() resolves in the new page, then clears',()=>{
  const close=between('function closeDialog(','const focusNote');
- assert.match(close,/restoreFocus = action \? `\[data-action="\$\{action\}"\]` : null;/);
+ assert.match(close,/restoreFocus = \/\^\[a-z-\]\+\$\/\.test\(action\)\s*\? \{ sel: `\[data-action="\$\{action\}"\]`, region: REGIONS\.find\(\(r\) => lastFocus\.closest\(r\)\) \}\s*: null;/);
  assert.match(close,/queueMicrotask\(\(\) => \(restoreFocus = null\)\)/);
  const render=between('function render(','function tree(');
- assert.match(render,/restoreHomeUi\(ui\);\s*if \(restoreFocus\) \$\("#app " \+ restoreFocus\)\?\.focus\(\);\s*restoreFocus = null;/);
+ assert.match(render,/restoreHomeUi\(ui\);\s*if \(restoreFocus\) \{[^]*?\$\("#app"\)\.querySelectorAll\(restoreFocus\.sel\)\]\.filter\(\(el\) => el\.getClientRects\(\)\.length\)[^]*?restoreFocus\.region && el\.closest\(restoreFocus\.region\)[^]*?\|\| shown\[0\]\)\?\.focus\(\);\s*\}\s*restoreFocus = null;/);
 });
 test('deleting a note refocuses the tab of the note now shown, or the empty-state button',()=>{
  const src=between('case "delete":','case "help":');
- assert.match(src,/closeDialog\(\);[^]*?restoreFocus = "\.tab\.active \.label, \.empty button";\s*render\(\);/);
+ assert.match(src,/closeDialog\(\);[^]*?restoreFocus = \{ sel: "\.tab\.active \.label, \.empty button" \};\s*render\(\);/);
 });
 test('a palette opened over a dialog keeps the dialog opener as the return target',()=>{
  const src=between('function commandPalette(','const input = $("#command-query")');
@@ -66,7 +66,17 @@ test('a palette opened over a dialog keeps the dialog opener as the return targe
 });
 test('picking a palette result moves focus into the opened note, whether or not a dialog was under it',()=>{
  const src=between('const node = e.target.closest("[data-note]")','const wiki =');
- assert.match(src,/const picked = modal\.open;\s*if \(picked\) closeDialog\(\);\s*openNote\(node\.dataset\.note\);\s*if \(picked\) focusNote\(\);/);
+ assert.match(src,/const picked = modal\.open;\s*if \(picked\) closeDialog\(\);\s*openNote\(node\.dataset\.note\);\s*if \(picked\) \{\s*focusNote\(\);\s*if \(e\.detail === 0\) holdEnter\(\);\s*\}/);
  assert.match(appSrc,/const focusNote = \(\) => \(\$\("#editor"\) \|\| \$\("\.note-title"\)\)\?\.focus\(\);/);
  assert.match(appSrc,/<h1 class="note-title" tabindex="-1">/);
+});
+test('a key-driven palette pick swallows repeated Enter until the key is released',()=>{
+ const src=between('function holdEnter(','modal.addEventListener("click"');
+ assert.match(src,/e\.key === "Enter" && e\.repeat && e\.preventDefault\(\)/);
+ assert.match(src,/addEventListener\("keydown", stop, true\)/);
+ assert.match(src,/if \(e\.key !== "Enter"\) return;\s*document\.removeEventListener\("keydown", stop, true\);\s*document\.removeEventListener\("keyup", release\);/);
+});
+test('the restore hint is built only from a plain action name and is resolved inside #app',()=>{
+ assert.match(appSrc,/const REGIONS = \[/);
+ assert.doesNotMatch(between('function render(','function tree('),/"#app " \+/);
 });

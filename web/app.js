@@ -190,7 +190,12 @@ function render() {
       )}</div>${ib("plus", "New note", "new")}${ib("rightPanel", "Toggle context sidebar", "context", "right")}</div><div class="document-toolbar">${ib("panel", "Toggle files", "files")}${ib("left", "Previous note", "back", "history")}${ib("right", "Next note", "forward", "history")}<div class="breadcrumb"><span>${esc(view === "note" ? n?.folder || "Notes" : "Personal space")}</span>${icon("chevron")}<span>${esc(view === "home" ? "Home" : view === "note" ? n?.title || "No open note" : view === "graph" ? "Graph view" : "Canvas")}</span></div>${view === "note" && n ? `<button class="mode-button" data-action="mode" title="Toggle edit and read (⌘ E)">${icon(mode === "read" ? "edit" : "book")}${mode === "read" ? "Edit note" : "Reading view"}</button>${ib("more", "Note actions", "more")}` : ""}</div><div id="save-alert" class="hidden"></div><div id="file-alert" class="hidden" role="status"></div>${view === "home" ? homeHTML() : view === "note" ? `<div class="document-scroll"><article class="document">${n ? noteHTML(n) : '<div class="empty"><h1>A little room to think.</h1><p>Create a note to get started.</p><button class="primary-button" data-action="new">Create a note</button></div>'}</article></div>` : specialView()}</main><aside class="context" aria-label="Note context"><div class="context-tabs">${ib("link", "Backlinks", "right-links", rightTab === "links" ? "active" : "")}${ib("list", "Outline", "right-outline", rightTab === "outline" ? "active" : "")}${ib("hash", "Tags", "right-tags", rightTab === "tags" ? "active" : "")}<span style="flex:1"></span>${ib("rightPanel", "Close context", "context")}</div>${contextHTML(n)}</aside></div><footer class="statusbar"><span class="save-status">${icon("cloud")}<span id="save-status" class="${isErrorState() ? "is-error" : ""}">${esc(saveLabel)}</span></span><button id="backup-reminder" data-action="backup" class="${backupDue() ? "" : "hidden"}" title="It has been over a week since your last backup">Back up now</button><span class="spacer"></span><button data-action="context">${n ? backlinks(n).length : 0} backlinks</button><span class="optional">${vault.notes.length} notes</span><span id="word-count">${n ? words(n.body) : 0} words</span><span class="optional" id="char-count">${n ? n.body.length : 0} characters</span>${ib("settings", "Settings", "settings")}</footer>${view === "home" ? bottomBar() : ""}`;
   renderAlerts();
   restoreHomeUi(ui);
-  if (restoreFocus) $("#app " + restoreFocus)?.focus();
+  if (restoreFocus) {
+    // The same control can appear in several regions, some hidden at this width: prefer the
+    // opener's own region, else the first one with a layout.
+    const shown = [...$("#app").querySelectorAll(restoreFocus.sel)].filter((el) => el.getClientRects().length);
+    (shown.find((el) => restoreFocus.region && el.closest(restoreFocus.region)) || shown[0])?.focus();
+  }
   restoreFocus = null;
 }
 function tree() {
@@ -822,14 +827,28 @@ function dialog(title, body, onSubmit) {
 }
 // render() rebuilds the page, so the opener that closeDialog() just refocused is gone. The
 // next render looks the same control up again in the new page by its data-action.
+const REGIONS = [".rail", ".files", ".bottom-bar", ".statusbar", ".home-scroll", ".document-toolbar", ".tabs", ".context", ".document"];
 function closeDialog() {
   modal.close();
   if (lastFocus?.isConnected) lastFocus.focus();
   const action = lastFocus?.dataset?.action;
-  restoreFocus = action ? `[data-action="${action}"]` : null;
+  restoreFocus = /^[a-z-]+$/.test(action)
+    ? { sel: `[data-action="${action}"]`, region: REGIONS.find((r) => lastFocus.closest(r)) }
+    : null;
   queueMicrotask(() => (restoreFocus = null));
 }
 const focusNote = () => ($("#editor") || $(".note-title"))?.focus();
+// Enter picked a result, so a key still held would repeat into the editor it now has.
+function holdEnter() {
+  const stop = (e) => e.key === "Enter" && e.repeat && e.preventDefault();
+  const release = (e) => {
+    if (e.key !== "Enter") return;
+    document.removeEventListener("keydown", stop, true);
+    document.removeEventListener("keyup", release);
+  };
+  document.addEventListener("keydown", stop, true);
+  document.addEventListener("keyup", release);
+}
 modal.addEventListener("click", (e) => {
   if (e.target === modal) closeDialog();
 });
@@ -1488,7 +1507,7 @@ async function handleAction(action) {
           changed();
           closeDialog();
           // The note and its opener are gone, so focus the tab of the note now shown.
-          restoreFocus = ".tab.active .label, .empty button";
+          restoreFocus = { sel: ".tab.active .label, .empty button" };
           render();
           toast("Note deleted");
         },
@@ -1519,7 +1538,10 @@ document.addEventListener("click", async (e) => {
       const picked = modal.open;
       if (picked) closeDialog();
       openNote(node.dataset.note);
-      if (picked) focusNote();
+      if (picked) {
+        focusNote();
+        if (e.detail === 0) holdEnter();
+      }
       return;
     }
     const wiki = e.target.closest("[data-wiki]");
