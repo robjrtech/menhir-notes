@@ -32,3 +32,8 @@ test('no button template inside a dialog body omits its type',()=>{
   assert.match(tag,/\btype="(button|submit)"/,tag);
  }
 });
+test('dialogs swallow auto-repeated Enter so a held key on the opener cannot submit them',()=>{
+ const src=between('function dialog(','function closeDialog');
+ assert.match(src,/modal\.onkeydown = \(e\) => \{\s*if \(e\.key === "Enter" && e\.repeat\) e\.preventDefault\(\);\s*\};/);
+ assert.doesNotMatch(src,/modal\.onkeydown = null/);
+});

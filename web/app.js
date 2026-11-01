@@ -795,7 +795,10 @@ async function saveVault() {
   }
 }
 function dialog(title, body, onSubmit) {
-  modal.onkeydown = null;
+  // Auto-repeated Enter from a held key on the opener must not submit the new dialog.
+  modal.onkeydown = (e) => {
+    if (e.key === "Enter" && e.repeat) e.preventDefault();
+  };
   lastFocus = document.activeElement;
   modal.innerHTML = `<form id="dialog-form"><div class="dialog-head"><h2>${esc(title)}</h2>${ib("x", "Close dialog", "close-modal")}</div><div class="dialog-body">${body}<p id="dialog-error" class="error-text" role="alert"></p></div></form>`;
   if (!modal.open) modal.showModal();
