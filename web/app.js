@@ -799,9 +799,12 @@ function dialog(title, body, onSubmit) {
   modal.onkeydown = (e) => {
     if (e.key === "Enter" && e.repeat) e.preventDefault();
   };
-  lastFocus = document.activeElement;
+  const replacing = modal.open;
+  // A dialog opened from inside another keeps the original opener as the return target.
+  if (!replacing) lastFocus = document.activeElement;
   modal.innerHTML = `<form id="dialog-form"><div class="dialog-head"><h2>${esc(title)}</h2>${ib("x", "Close dialog", "close-modal")}</div><div class="dialog-body">${body}<p id="dialog-error" class="error-text" role="alert"></p></div></form>`;
-  if (!modal.open) modal.showModal();
+  if (replacing) modal.querySelector("button")?.focus();
+  else modal.showModal();
   $("#dialog-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     try {

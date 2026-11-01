@@ -37,3 +37,14 @@ test('dialogs swallow auto-repeated Enter so a held key on the opener cannot sub
  assert.match(src,/modal\.onkeydown = \(e\) => \{\s*if \(e\.key === "Enter" && e\.repeat\) e\.preventDefault\(\);\s*\};/);
  assert.doesNotMatch(src,/modal\.onkeydown = null/);
 });
+test('a dialog opened from inside another keeps the original opener and focuses its first control',()=>{
+ const src=between('function dialog(','function closeDialog');
+ assert.match(src,/const replacing = modal\.open;/);
+ assert.match(src,/if \(!replacing\) lastFocus = document\.activeElement;/);
+ assert.doesNotMatch(src,/^\s*lastFocus = document\.activeElement;/m);
+ assert.match(src,/if \(replacing\) modal\.querySelector\("button"\)\?\.focus\(\);\s*else modal\.showModal\(\);/);
+});
+test('the replaced-dialog focus never lands on a submit button, since the Close X always comes first',()=>{
+ const src=between('function dialog(','function closeDialog');
+ assert.ok(src.indexOf('Close dialog')<src.indexOf('${body}'));
+});
