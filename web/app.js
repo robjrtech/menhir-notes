@@ -190,14 +190,19 @@ function render() {
       )}</div>${ib("plus", "New note", "new")}${ib("rightPanel", "Toggle context sidebar", "context", "right")}</div><div class="document-toolbar">${ib("panel", "Toggle files", "files")}${ib("left", "Previous note", "back", "history")}${ib("right", "Next note", "forward", "history")}<div class="breadcrumb"><span>${esc(view === "note" ? n?.folder || "Notes" : "Personal space")}</span>${icon("chevron")}<span>${esc(view === "home" ? "Home" : view === "note" ? n?.title || "No open note" : view === "graph" ? "Graph view" : "Canvas")}</span></div>${view === "note" && n ? `<button class="mode-button" data-action="mode" title="Toggle edit and read (⌘ E)">${icon(mode === "read" ? "edit" : "book")}${mode === "read" ? "Edit note" : "Reading view"}</button>${ib("more", "Note actions", "more")}` : ""}</div><div id="save-alert" class="hidden"></div><div id="file-alert" class="hidden" role="status"></div>${view === "home" ? homeHTML() : view === "note" ? `<div class="document-scroll"><article class="document">${n ? noteHTML(n) : '<div class="empty"><h1>A little room to think.</h1><p>Create a note to get started.</p><button class="primary-button" data-action="new">Create a note</button></div>'}</article></div>` : specialView()}</main><aside class="context" aria-label="Note context"><div class="context-tabs">${ib("link", "Backlinks", "right-links", rightTab === "links" ? "active" : "")}${ib("list", "Outline", "right-outline", rightTab === "outline" ? "active" : "")}${ib("hash", "Tags", "right-tags", rightTab === "tags" ? "active" : "")}<span style="flex:1"></span>${ib("rightPanel", "Close context", "context")}</div>${contextHTML(n)}</aside></div><footer class="statusbar"><span class="save-status">${icon("cloud")}<span id="save-status" class="${isErrorState() ? "is-error" : ""}">${esc(saveLabel)}</span></span><button id="backup-reminder" data-action="backup" class="${backupDue() ? "" : "hidden"}" title="It has been over a week since your last backup">Back up now</button><span class="spacer"></span><button data-action="context">${n ? backlinks(n).length : 0} backlinks</button><span class="optional">${vault.notes.length} notes</span><span id="word-count">${n ? words(n.body) : 0} words</span><span class="optional" id="char-count">${n ? n.body.length : 0} characters</span>${ib("settings", "Settings", "settings")}</footer>${view === "home" ? bottomBar() : ""}`;
   renderAlerts();
   restoreHomeUi(ui);
-  if (restoreFocus) {
-    // The same control can appear in several regions, some hidden at this width: prefer the
-    // opener's own region, else the first one with a layout.
-    const shown = [...$("#app").querySelectorAll(restoreFocus.sel)].filter((el) => el.getClientRects().length);
-    (shown.find((el) => restoreFocus.region && el.closest(restoreFocus.region)) || shown[0])?.focus();
-  }
+  if (restoreFocus && !focusShown(restoreFocus.sel, restoreFocus.region)) focusShown(LANDING);
   restoreFocus = null;
 }
+// The same control can appear in several regions, some hidden at this width: prefer the
+// given region, else the first one with a layout.
+function focusShown(sel, region) {
+  const shown = [...$("#app").querySelectorAll(sel)].filter((el) => el.getClientRects().length);
+  const el = shown.find((el) => region && el.closest(region)) || shown[0];
+  el?.focus();
+  return !!el;
+}
+// Where focus goes when the control it should return to is gone.
+const LANDING = '.tab.active .label, .empty button, [data-action="home"].active';
 function tree() {
   return (
     vault.folders
@@ -831,13 +836,21 @@ const REGIONS = [".rail", ".files", ".bottom-bar", ".statusbar", ".home-scroll",
 function closeDialog() {
   modal.close();
   if (lastFocus?.isConnected) lastFocus.focus();
-  const action = lastFocus?.dataset?.action;
-  restoreFocus = /^[a-z-]+$/.test(action)
-    ? { sel: `[data-action="${action}"]`, region: REGIONS.find((r) => lastFocus.closest(r)) }
-    : null;
+  const attr = ["data-action", "data-move-card"].find((a) => lastFocus?.getAttribute?.(a));
+  const value = attr && lastFocus.getAttribute(attr);
+  restoreFocus =
+    value && /^[\w-]+$/.test(value)
+      ? { sel: `[${attr}="${value}"]`, region: REGIONS.find((r) => lastFocus.closest(r)) }
+      : { sel: LANDING };
   queueMicrotask(() => (restoreFocus = null));
 }
 const focusNote = () => ($("#editor") || $(".note-title"))?.focus();
+// Enter clicks a button on keydown and Space on keyup, so only Enter is still down at the click.
+let enterDown = false;
+document.addEventListener("keydown", (e) => e.key === "Enter" && (enterDown = true), true);
+document.addEventListener("keyup", (e) => e.key === "Enter" && (enterDown = false), true);
+// The keyup is missed if the window loses focus mid-press, e.g. to the file picker.
+window.addEventListener("blur", () => (enterDown = false));
 // Enter picked a result, so a key still held would repeat into the editor it now has.
 function holdEnter() {
   const stop = (e) => e.key === "Enter" && e.repeat && e.preventDefault();
@@ -1322,10 +1335,12 @@ async function handleAction(action) {
       dialog(
         "Load the latest copy?",
         `<p>This replaces what is in this tab with the latest saved copy. Your unsaved changes are kept as a draft on this device, and you can export them first.</p><button type="button" class="secondary-button" data-action="backup">Export draft</button>${actions("Load latest copy")}`,
-        () => {
+        async () => {
           pendingDraft = null;
           closeDialog();
-          loadVault();
+          // The banner that opened this is gone once the copy loads.
+          await loadVault();
+          focusShown(LANDING);
         },
       );
       break;
@@ -1359,6 +1374,8 @@ async function handleAction(action) {
       const scan = await pendingDrafts(store, vault);
       pendingDraft = scan.offer[0] ?? scan.invalid[0] ?? null;
       renderAlerts();
+      // The banner was redrawn: focus its next Review button, or leave it for the note.
+      focusShown('[data-action="recover"]') || focusShown(LANDING);
       toast("Draft discarded");
       break;
     }
@@ -1540,7 +1557,7 @@ document.addEventListener("click", async (e) => {
       openNote(node.dataset.note);
       if (picked) {
         focusNote();
-        if (e.detail === 0) holdEnter();
+        if (enterDown) holdEnter();
       }
       return;
     }
@@ -1805,6 +1822,7 @@ $("#import-file").addEventListener("change", async (e) => {
       changed();
       if (modal.open) closeDialog();
       openNote(vault.notes.at(-1).id);
+      focusNote();
       toast(
         files.length + " note" + (files.length === 1 ? "" : "s") + " imported",
       );

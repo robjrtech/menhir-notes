@@ -50,10 +50,14 @@ test('the replaced-dialog focus never lands on a submit button, since the Close 
 });
 test('closing a dialog leaves a hint that render() resolves in the new page, then clears',()=>{
  const close=between('function closeDialog(','const focusNote');
- assert.match(close,/restoreFocus = \/\^\[a-z-\]\+\$\/\.test\(action\)\s*\? \{ sel: `\[data-action="\$\{action\}"\]`, region: REGIONS\.find\(\(r\) => lastFocus\.closest\(r\)\) \}\s*: null;/);
+ assert.match(close,/const attr = \["data-action", "data-move-card"\]\.find\(\(a\) => lastFocus\?\.getAttribute\?\.\(a\)\);/);
+ assert.match(close,/value && \/\^\[\\w-\]\+\$\/\.test\(value\)\s*\? \{ sel: `\[\$\{attr\}="\$\{value\}"\]`, region: REGIONS\.find\(\(r\) => lastFocus\.closest\(r\)\) \}\s*: \{ sel: LANDING \};/);
  assert.match(close,/queueMicrotask\(\(\) => \(restoreFocus = null\)\)/);
  const render=between('function render(','function tree(');
- assert.match(render,/restoreHomeUi\(ui\);\s*if \(restoreFocus\) \{[^]*?\$\("#app"\)\.querySelectorAll\(restoreFocus\.sel\)\]\.filter\(\(el\) => el\.getClientRects\(\)\.length\)[^]*?restoreFocus\.region && el\.closest\(restoreFocus\.region\)[^]*?\|\| shown\[0\]\)\?\.focus\(\);\s*\}\s*restoreFocus = null;/);
+ assert.match(render,/restoreHomeUi\(ui\);\s*if \(restoreFocus && !focusShown\(restoreFocus\.sel, restoreFocus\.region\)\) focusShown\(LANDING\);\s*restoreFocus = null;/);
+ const shown=between('function focusShown(','const LANDING');
+ assert.match(shown,/\[\.\.\.\$\("#app"\)\.querySelectorAll\(sel\)\]\.filter\(\(el\) => el\.getClientRects\(\)\.length\)/);
+ assert.match(shown,/shown\.find\(\(el\) => region && el\.closest\(region\)\) \|\| shown\[0\];\s*el\?\.focus\(\);\s*return !!el;/);
 });
 test('deleting a note refocuses the tab of the note now shown, or the empty-state button',()=>{
  const src=between('case "delete":','case "help":');
@@ -66,7 +70,7 @@ test('a palette opened over a dialog keeps the dialog opener as the return targe
 });
 test('picking a palette result moves focus into the opened note, whether or not a dialog was under it',()=>{
  const src=between('const node = e.target.closest("[data-note]")','const wiki =');
- assert.match(src,/const picked = modal\.open;\s*if \(picked\) closeDialog\(\);\s*openNote\(node\.dataset\.note\);\s*if \(picked\) \{\s*focusNote\(\);\s*if \(e\.detail === 0\) holdEnter\(\);\s*\}/);
+ assert.match(src,/const picked = modal\.open;\s*if \(picked\) closeDialog\(\);\s*openNote\(node\.dataset\.note\);\s*if \(picked\) \{\s*focusNote\(\);\s*if \(enterDown\) holdEnter\(\);\s*\}/);
  assert.match(appSrc,/const focusNote = \(\) => \(\$\("#editor"\) \|\| \$\("\.note-title"\)\)\?\.focus\(\);/);
  assert.match(appSrc,/<h1 class="note-title" tabindex="-1">/);
 });
@@ -79,4 +83,27 @@ test('a key-driven palette pick swallows repeated Enter until the key is release
 test('the restore hint is built only from a plain action name and is resolved inside #app',()=>{
  assert.match(appSrc,/const REGIONS = \[/);
  assert.doesNotMatch(between('function render(','function tree('),/"#app " \+/);
+});
+test('only an Enter pick arms holdEnter: Space clicks on keyup, when Enter is not down',()=>{
+ assert.match(appSrc,/document\.addEventListener\("keydown", \(e\) => e\.key === "Enter" && \(enterDown = true\), true\);/);
+ assert.match(appSrc,/document\.addEventListener\("keyup", \(e\) => e\.key === "Enter" && \(enterDown = false\), true\);/);
+ assert.doesNotMatch(appSrc,/e\.detail === 0\) holdEnter/);
+ assert.match(appSrc,/window\.addEventListener\("blur", \(\) => \(enterDown = false\)\);/);
+});
+test('a hint that finds nothing, or no usable opener, falls back to a landing control, never the page',()=>{
+ assert.match(appSrc,/const LANDING = '\.tab\.active \.label, \.empty button, \[data-action="home"\]\.active';/);
+ const close=between('function closeDialog(','const focusNote');
+ assert.doesNotMatch(close,/: null;/);
+});
+test('a canvas card move returns focus to that card\'s Move button',()=>{
+ assert.match(appSrc,/data-move-card="\$\{c\.id\}"/);
+ assert.match(between('function closeDialog(','const focusNote'),/"data-move-card"/);
+});
+test('loading the latest copy and discarding a draft land focus after the banner is redrawn',()=>{
+ assert.match(between('case "reload-latest":','case "recover":'),/async \(\) => \{\s*pendingDraft = null;\s*closeDialog\(\);[^]*?await loadVault\(\);\s*focusShown\(LANDING\);/);
+ assert.match(between('case "discard-draft":','case "download-raw":'),/renderAlerts\(\);[^]*?focusShown\('\[data-action="recover"\]'\) \|\| focusShown\(LANDING\);/);
+});
+test('importing notes focuses the last imported note',()=>{
+ const src=between('$("#import-file").addEventListener','window.addEventListener("beforeunload"');
+ assert.match(src,/openNote\(vault\.notes\.at\(-1\)\.id\);\s*focusNote\(\);/);
 });
