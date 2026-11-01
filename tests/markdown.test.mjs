@@ -14,8 +14,8 @@ const randomString=(rand,max=80)=>{const len=Math.floor(rand()*(max+1));let s=''
 test('control: the reference regex scales quadratically, so the performance tests can detect a regression',()=>{
  // A doubling ratio does not depend on how fast the computer is.
  const small='['.repeat(20000),large='['.repeat(40000);
- const t1=Math.min(time(()=>oracle.inline(small))[0],time(()=>oracle.inline(small))[0]);
- const t2=Math.min(time(()=>oracle.inline(large))[0],time(()=>oracle.inline(large))[0]);
+ const t1=best(()=>oracle.inline(small));
+ const t2=best(()=>oracle.inline(large));
  assert.ok(t2/t1>3,'doubling the input multiplied the reference time by only '+(t2/t1).toFixed(2));
  const rename=best(()=>oracle.renameLinks(small,'a','b'),2);
  assert.ok(rename>0);
