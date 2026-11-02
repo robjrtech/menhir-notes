@@ -1,4 +1,4 @@
-import { validateVault, MAX_BYTES } from "./model.js";
+import { validateVault, MAX_BYTES, renameFolder, deleteFolder } from "./model.js";
 import { esc, markdown, renameLinks } from "./markdown.js";
 import { BRAND } from "./brand.js";
 import {
@@ -33,6 +33,19 @@ import {
   homeModel,
   plural,
 } from "./home.js";
+import {
+  DEFAULT_VAULT,
+  MAX_VAULTS,
+  VAULT_NAME_MAX,
+  vaultStorage,
+  readVaults,
+  checkVaultName,
+  withVault,
+  withName,
+  pickVault,
+  newVaultId,
+} from "./vaults.js";
+import { isApple, shortcutKeys } from "./keys.js";
 const $ = (s, root = document) => root.querySelector(s);
 const icons = {
   file: "M6 3h8l4 4v14H6z M14 3v5h4",
@@ -84,7 +97,7 @@ function seedVault() {
       title: "A place for ideas",
       folder: "Getting started",
       tags: ["welcome", "personal"],
-      body: "Your thoughts deserve a little room to grow. This is your space to capture what matters, make connections, and find your way back to a good idea.\n\n## A little less noise. A little more clarity.\nStart with a thought. It doesn’t need to be finished, organized, or particularly brilliant. Just give it a place to land.\n\n> [!tip] Everything starts with a note\n> Press **⌘ N** to make something new, or click **Edit note** to make this space your own.\n\n## A few things in motion\n- [x] Make a space for your thoughts\n- [ ] Write something in [[Today’s intentions]]\n- [ ] Collect a spark in [[Small observations]]\n- [ ] Connect two ideas with a link\n\n## Follow the connections\nThe best ideas rarely happen in isolation. Link a note with `[[double brackets]]` and let one thought lead to another.\n\nTry exploring [[The creative process]], or start building your own [[Reading list]].\n\nYour notes are saved in this browser. From Settings you can export a backup, and in Chrome or Edge you can also save them to a file on your computer.\n\n---\n*A notebook is a place where you get to think out loud.*",
+      body: "Your thoughts deserve a little room to grow. This is your space to capture what matters, make connections, and find your way back to a good idea.\n\n## A little less noise. A little more clarity.\nStart with a thought. It doesn’t need to be finished, organized, or particularly brilliant. Just give it a place to land.\n\n> [!tip] Everything starts with a note\n> Choose **+** next to FILES to make something new, or click **Edit note** to make this space your own.\n\n## A few things in motion\n- [x] Make a space for your thoughts\n- [ ] Write something in [[Today’s intentions]]\n- [ ] Collect a spark in [[Small observations]]\n- [ ] Connect two ideas with a link\n\n## Follow the connections\nThe best ideas rarely happen in isolation. Link a note with `[[double brackets]]` and let one thought lead to another.\n\nTry exploring [[The creative process]], or start building your own [[Reading list]].\n\nYour notes are saved in this browser. From Settings you can export a backup, and in Chrome or Edge you can also save them to a file on your computer.\n\n---\n*A notebook is a place where you get to think out loud.*",
       starred: true,
     },
     {
@@ -159,6 +172,7 @@ const emptyVault = () => ({
   notes: [],
   canvas: [],
 });
+const keys = shortcutKeys(isApple());
 // Nothing from the sample notes is shown until storage has been read.
 let vault = emptyVault();
 let active = null,
@@ -178,7 +192,7 @@ function render() {
   const ui = saveHomeUi();
   $("#app").className = view === "home" ? "is-home" : "";
   $("#app").innerHTML =
-    `<div class="workspace ${showFiles ? "show-files" : ""} ${showContext ? "show-context" : ""} ${hideFiles ? "no-files" : ""} ${hideContext || view === "home" ? "no-context" : ""} ${view === "home" ? "home-view" : ""}"><nav class="rail" aria-label="Workspace tools"><div class="brand" title="${esc(BRAND.name)}">${BRAND.glyph}</div>${ib("home", "Home", "home", view === "home" ? "active" : "", view === "home")}${ib("file", "Notes", "notes", view === "note" ? "active" : "", view === "note")}${ib("search", "Search notes (⌘ K)", "search")}${ib("graph", "Graph view", "graph", view === "graph" ? "active" : "", view === "graph")}${ib("canvas", "Canvas", "canvas", view === "canvas" ? "active" : "", view === "canvas")}${ib("calendar", "Open daily note", "daily")}<div class="rail-bottom">${ib("help", "Keyboard shortcuts", "help")}${ib("settings", "Settings", "settings")}</div></nav><aside class="files" aria-label="Notes and folders"><div class="vault-name">${icon("book")} Personal space <small>⌄</small>${ib("x", "Close files", "files", "mobile-close")}</div><button class="search-trigger" data-action="search">${icon("search")}<span>Quick switcher</span><kbd>⌘ K</kbd></button><div class="section-title">FILES <span class="tools">${ib("plus", "New note (⌘ N)", "new")}${ib("folder", "New folder", "folder")}${ib("down", "Collapse or expand folders", "collapse")}</span></div><div class="file-tree">${tree()}</div><div class="mobile-tools">${ib("home", "Home", "home", view === "home" ? "active" : "", view === "home")}${ib("search", "Search notes", "search")}${ib("graph", "Graph view", "graph")}${ib("canvas", "Canvas", "canvas")}${ib("calendar", "Open daily note", "daily")}${ib("settings", "Settings", "settings")}</div><div class="vault-footer">${icon("cloud")} ${storageFooter({ loading, loaded, storageDown })}</div></aside><main class="main"><div class="tabs"><div class="tabs-scroll" role="group" aria-label="Open notes">${tabs
+    `<div class="workspace ${showFiles ? "show-files" : ""} ${showContext ? "show-context" : ""} ${hideFiles ? "no-files" : ""} ${hideContext || view === "home" ? "no-context" : ""} ${view === "home" ? "home-view" : ""}"><nav class="rail" aria-label="Workspace tools"><div class="brand" title="${esc(BRAND.name)}">${BRAND.glyph}</div>${ib("home", "Home", "home", view === "home" ? "active" : "", view === "home")}${ib("file", "Notes", "notes", view === "note" ? "active" : "", view === "note")}${ib("search", `Search notes (${keys.label("K")})`, "search")}${ib("graph", "Graph view", "graph", view === "graph" ? "active" : "", view === "graph")}${ib("canvas", "Canvas", "canvas", view === "canvas" ? "active" : "", view === "canvas")}${ib("calendar", "Open daily note", "daily")}<div class="rail-bottom">${ib("help", "Keyboard shortcuts", "help")}${ib("settings", "Settings", "settings")}</div></nav><aside class="files" aria-label="Notes and folders"><div class="vault-name"><button type="button" class="vault-switch" data-action="vaults" aria-haspopup="dialog" title="Switch or create a vault">${icon("book")}<span>${esc(vaultName())}</span>${icon("down")}</button>${ib("x", "Close files", "files", "mobile-close")}</div><button class="search-trigger" data-action="search">${icon("search")}<span>Quick switcher</span><kbd>${keys.label("K")}</kbd></button><div class="section-title">FILES <span class="tools">${ib("plus", `New note (${keys.label("N", true)})`, "new")}${ib("folder", "New folder", "folder")}${ib("down", "Collapse or expand folders", "collapse")}</span></div><div class="file-tree">${tree()}</div><div class="mobile-tools">${ib("home", "Home", "home", view === "home" ? "active" : "", view === "home")}${ib("search", "Search notes", "search")}${ib("graph", "Graph view", "graph")}${ib("canvas", "Canvas", "canvas")}${ib("calendar", "Open daily note", "daily")}${ib("settings", "Settings", "settings")}</div><div class="vault-footer">${icon("cloud")} ${storageFooter({ loading, loaded, storageDown })}</div></aside><main class="main"><div class="tabs"><div class="tabs-scroll" role="group" aria-label="Open notes">${tabs
       .map((id) => {
         let t = vault.notes.find((x) => x.id === id);
         return t
@@ -187,7 +201,7 @@ function render() {
       })
       .join(
         "",
-      )}</div>${ib("plus", "New note", "new")}${ib("rightPanel", "Toggle context sidebar", "context", "right")}</div><div class="document-toolbar">${ib("panel", "Toggle files", "files")}${ib("left", "Previous note", "back", "history")}${ib("right", "Next note", "forward", "history")}<div class="breadcrumb"><span>${esc(view === "note" ? n?.folder || "Notes" : "Personal space")}</span>${icon("chevron")}<span>${esc(view === "home" ? "Home" : view === "note" ? n?.title || "No open note" : view === "graph" ? "Graph view" : "Canvas")}</span></div>${view === "note" && n ? `<button class="mode-button" data-action="mode" title="Toggle edit and read (⌘ E)">${icon(mode === "read" ? "edit" : "book")}${mode === "read" ? "Edit note" : "Reading view"}</button>${ib("more", "Note actions", "more")}` : ""}</div><div id="save-alert" class="hidden"></div><div id="file-alert" class="hidden" role="status"></div>${view === "home" ? homeHTML() : view === "note" ? `<div class="document-scroll"><article class="document">${n ? noteHTML(n) : '<div class="empty"><h1>A little room to think.</h1><p>Create a note to get started.</p><button class="primary-button" data-action="new">Create a note</button></div>'}</article></div>` : specialView()}</main><aside class="context" aria-label="Note context"><div class="context-tabs">${ib("link", "Backlinks", "right-links", rightTab === "links" ? "active" : "")}${ib("list", "Outline", "right-outline", rightTab === "outline" ? "active" : "")}${ib("hash", "Tags", "right-tags", rightTab === "tags" ? "active" : "")}<span style="flex:1"></span>${ib("rightPanel", "Close context", "context")}</div>${contextHTML(n)}</aside></div><footer class="statusbar"><span class="save-status">${icon("cloud")}<span id="save-status" class="${isErrorState() ? "is-error" : ""}">${esc(saveLabel)}</span></span><button id="backup-reminder" data-action="backup" class="${backupDue() ? "" : "hidden"}" title="It has been over a week since your last backup">Back up now</button><span class="spacer"></span><button data-action="context">${n ? backlinks(n).length : 0} backlinks</button><span class="optional">${vault.notes.length} notes</span><span id="word-count">${n ? words(n.body) : 0} words</span><span class="optional" id="char-count">${n ? n.body.length : 0} characters</span>${ib("settings", "Settings", "settings")}</footer>${view === "home" ? bottomBar() : ""}`;
+      )}</div>${ib("plus", "New note", "new")}${ib("rightPanel", "Toggle context sidebar", "context", "right")}</div><div class="document-toolbar">${ib("panel", "Toggle files", "files")}${ib("left", "Previous note", "back", "history")}${ib("right", "Next note", "forward", "history")}<div class="breadcrumb"><span>${esc(view === "note" ? n?.folder || "Notes" : vaultName())}</span>${icon("chevron")}<span>${esc(view === "home" ? "Home" : view === "note" ? n?.title || "No open note" : view === "graph" ? "Graph view" : "Canvas")}</span></div>${view === "note" && n ? `<button class="mode-button" data-action="mode" title="Toggle edit and read (${keys.label("E")})">${icon(mode === "read" ? "edit" : "book")}${mode === "read" ? "Edit note" : "Reading view"}</button>${ib("more", "Note actions", "more")}` : ""}</div><div id="save-alert" class="hidden"></div><div id="file-alert" class="hidden" role="status"></div>${view === "home" ? homeHTML() : view === "note" ? `<div class="document-scroll"><article class="document">${n ? noteHTML(n) : '<div class="empty"><h1>A little room to think.</h1><p>Create a note to get started.</p><button class="primary-button" data-action="new">Create a note</button></div>'}</article></div>` : specialView()}</main><aside class="context" aria-label="Note context"><div class="context-tabs">${ib("link", "Backlinks", "right-links", rightTab === "links" ? "active" : "")}${ib("list", "Outline", "right-outline", rightTab === "outline" ? "active" : "")}${ib("hash", "Tags", "right-tags", rightTab === "tags" ? "active" : "")}<span style="flex:1"></span>${ib("rightPanel", "Close context", "context")}</div>${contextHTML(n)}</aside></div><footer class="statusbar"><span class="save-status">${icon("cloud")}<span id="save-status" class="${isErrorState() ? "is-error" : ""}">${esc(saveLabel)}</span></span><button id="backup-reminder" data-action="backup" class="${backupDue() ? "" : "hidden"}" title="It has been over a week since your last backup">Back up now</button><span class="spacer"></span><button data-action="context">${n ? backlinks(n).length : 0} backlinks</button><span class="optional">${vault.notes.length} notes</span><span id="word-count">${n ? words(n.body) : 0} words</span><span class="optional" id="char-count">${n ? n.body.length : 0} characters</span>${ib("settings", "Settings", "settings")}</footer>${view === "home" ? bottomBar() : ""}`;
   renderAlerts();
   restoreHomeUi(ui);
   if (restoreFocus && !focusShown(restoreFocus.sel, restoreFocus.region)) focusShown(LANDING);
@@ -208,7 +222,7 @@ function tree() {
     vault.folders
       .map(
         (f) =>
-          `<button class="tree-item folder" data-folder="${esc(f)}" aria-expanded="${!collapsed.has(f)}">${icon(collapsed.has(f) ? "chevron" : "down")}${icon("folder")}<span>${esc(f)}</span><span class="count">${vault.notes.filter((n) => n.folder === f).length}</span></button>${
+          `<div class="tree-folder"><button class="tree-item folder" data-folder="${esc(f)}" aria-expanded="${!collapsed.has(f)}">${icon(collapsed.has(f) ? "chevron" : "down")}${icon("folder")}<span>${esc(f)}</span><span class="count">${vault.notes.filter((n) => n.folder === f).length}</span></button><button type="button" class="icon-button folder-more" data-folder-menu="${esc(f)}" title="Folder actions" aria-label="Actions for folder ${esc(f)}">${icon("more")}</button></div>${
             collapsed.has(f)
               ? ""
               : vault.notes
@@ -242,7 +256,7 @@ function backlinks(n) {
   );
 }
 function noteHTML(n) {
-  return `<div class="note-eyebrow">${icon("file")} ${esc(n.folder)} <span> / </span> ${esc(new Date(n.updatedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }))}</div>${mode === "read" ? `<h1 class="note-title" tabindex="-1">${esc(n.title)}</h1>` : `<input aria-label="Note title" class="note-title-input" id="note-title" value="${esc(n.title)}" maxlength="120">`}<div class="tags">${n.tags.map((t) => `<button class="tag" data-tag="${esc(t)}"># ${esc(t)}</button>`).join("")}${mode === "edit" ? '<button class="tag" data-action="tags">+ tags</button>' : ""}</div>${mode === "read" ? `<div class="prose">${markdown(n.body)}</div>` : `<textarea class="editor" id="editor" aria-label="Markdown note content" spellcheck="true">${esc(n.body)}</textarea><p class="editor-help">Markdown supported · [[link a note]] · ⌘ E to preview</p>`}<div class="note-tail"><span>${icon("link")} ${backlinks(n).length} linked mentions</span><span>Personal space</span></div>`;
+  return `<div class="note-eyebrow">${icon("file")} ${esc(n.folder)} <span> / </span> ${esc(new Date(n.updatedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }))}</div>${mode === "read" ? `<h1 class="note-title" tabindex="-1">${esc(n.title)}</h1>` : `<input aria-label="Note title" class="note-title-input" id="note-title" value="${esc(n.title)}" maxlength="120">`}<div class="tags">${n.tags.map((t) => `<button class="tag" data-tag="${esc(t)}"># ${esc(t)}</button>`).join("")}${mode === "edit" ? '<button class="tag" data-action="tags">+ tags</button>' : ""}</div>${mode === "read" ? `<div class="prose">${markdown(n.body)}</div>` : `<textarea class="editor" id="editor" aria-label="Markdown note content" spellcheck="true">${esc(n.body)}</textarea><p class="editor-help">Markdown supported · [[link a note]] · ${keys.label("E")} to preview</p>`}<div class="note-tail"><span>${icon("link")} ${backlinks(n).length} linked mentions</span><span>${esc(vaultName())}</span></div>`;
 }
 function contextHTML(n) {
   if (!n) return '<p class="empty">Open a note to see its connections.</p>';
@@ -515,7 +529,12 @@ function toast(message) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => $("#toast").classList.remove("visible"), 3200);
 }
-const store = createStore();
+// The registry lists the vaults. Each vault has its own store, opened by boot().
+const registry = createStore({ dbName: BRAND.registryDb, channelName: BRAND.registryDb });
+let vaults = readVaults(null),
+  vaultId = DEFAULT_VAULT.id,
+  store = null;
+const vaultName = () => vaults.find((v) => v.id === vaultId)?.name ?? DEFAULT_VAULT.name;
 const caps = capabilities();
 let mirror = null; // set when the browser supports saving to a file
 let fileState = { kind: "unlinked" };
@@ -700,8 +719,9 @@ async function loadVault() {
   try {
     let result = await store.load();
     if (result.status === "empty") {
-      // Sample notes are written only when no record exists at all.
-      const seed = seedVault();
+      // Sample notes are written only when no record exists at all, and only in the first
+      // vault: a vault made later starts empty.
+      const seed = vaultId === DEFAULT_VAULT.id ? seedVault() : validateVault(emptyVault());
       try {
         const rev = await store.save(seed, 0);
         await store.setMeta("seedRevision", rev);
@@ -921,6 +941,125 @@ function newNoteDialog(prefill = "", folder = current()?.folder) {
       mode = "edit";
       openNote(n.id);
       $("#editor")?.focus();
+    },
+  );
+}
+function folderMenu(name) {
+  if (!loaded || !vault.folders.includes(name)) return;
+  dialog(
+    "Folder options",
+    `<button type="button" class="command-result" data-new-in="${esc(name)}">${icon("plus")}New note in “${esc(name)}”</button><button type="button" class="command-result" data-folder-rename="${esc(name)}">${icon("edit")}Rename folder</button><button type="button" class="command-result" data-folder-delete="${esc(name)}">${icon("trash")}Delete folder</button>`,
+  );
+}
+function renameFolderDialog(name) {
+  dialog(
+    "Rename folder",
+    `<label class="field-label" for="folder-rename">Folder name</label><input class="field" id="folder-rename" name="name" maxlength="80" required value="${esc(name)}">${actions("Rename folder")}`,
+    (form) => {
+      const next = form.get("name").trim();
+      vault = renameFolder(vault, name, next);
+      if (collapsed.delete(name)) collapsed.add(next);
+      changed();
+      closeDialog();
+      restoreFocus = { sel: `[data-folder-menu="${CSS.escape(next)}"]`, region: ".files" };
+      render();
+    },
+  );
+}
+function deleteFolderDialog(name) {
+  if (vault.folders.length === 1) {
+    dialog(
+      "This folder can’t be deleted",
+      `<p>“${esc(name)}” is the only folder in this vault, and a vault needs at least one. Create another folder first, or rename this one.</p><div class="dialog-actions"><button type="button" class="primary-button" data-action="close-modal">OK</button></div>`,
+    );
+    return;
+  }
+  const count = vault.notes.filter((n) => n.folder === name).length;
+  const others = vault.folders.filter((f) => f !== name);
+  const them = count === 1 ? "it" : "them";
+  dialog(
+    "Delete this folder?",
+    count
+      ? `<p>“${esc(name)}” has ${plural(count, "note")}. What should happen to ${them}?</p><fieldset class="choices"><legend class="sr-only">Notes in this folder</legend><label class="choice"><input type="radio" name="notes" value="move" checked> Move ${them} to another folder</label><select class="field" name="moveTo" aria-label="Folder to move the notes to">${others.map((f) => `<option>${esc(f)}</option>`).join("")}</select><label class="choice"><input type="radio" name="notes" value="delete"> Delete ${count === 1 ? "the note" : `all ${count} notes`} too. This can’t be undone.</label></fieldset><button type="button" class="secondary-button" data-action="backup">Export a backup first</button>${actions("Delete folder")}`
+      : `<p>“${esc(name)}” is empty. It will be removed from this vault.</p>${actions("Delete folder")}`,
+    (form) => {
+      const moveTo = form.get("notes") === "delete" ? null : (form.get("moveTo") ?? others[0]);
+      vault = deleteFolder(vault, name, moveTo);
+      collapsed.delete(name);
+      fixNavigation();
+      changed();
+      closeDialog();
+      // The folder and its actions button are gone.
+      restoreFocus = { sel: '[data-action="folder"]', region: ".files" };
+      render();
+      toast(moveTo === null && count ? `Folder and ${plural(count, "note")} deleted` : "Folder deleted");
+    },
+  );
+  const select = modal.querySelector('select[name="moveTo"]');
+  modal.querySelectorAll('input[name="notes"]').forEach((r) =>
+    r.addEventListener("change", () => (select.disabled = r.value === "delete" && r.checked)),
+  );
+}
+// -- vaults: each one is a separate store, so switching saves and then reloads the page ---------
+function openVaultId() {
+  try {
+    return sessionStorage.getItem(BRAND.vaultKey) ?? localStorage.getItem(BRAND.vaultKey);
+  } catch {
+    return null;
+  }
+}
+function rememberVault(id) {
+  for (const area of ["sessionStorage", "localStorage"])
+    try {
+      globalThis[area].setItem(BRAND.vaultKey, id);
+    } catch {
+      /* the next visit opens the first vault */
+    }
+}
+async function switchVault(id) {
+  if (id === vaultId) {
+    closeDialog();
+    return;
+  }
+  if (storageDown)
+    throw new Error("This browser isn’t saving notes right now, so other vaults can’t be opened. Export a backup to keep these notes.");
+  await flushSave();
+  if (dirty || conflict || saveError) throw new Error("Resolve the save problem first, then switch vaults.");
+  await mirror?.flush().catch(() => {});
+  rememberVault(id);
+  location.reload();
+}
+function vaultMenu() {
+  dialog(
+    "Your vaults",
+    `${vaults.map((v) => `<button type="button" class="command-result" data-vault="${esc(v.id)}"${v.id === vaultId ? ' aria-current="true"' : ""}>${icon(v.id === vaultId ? "check" : "book")}<span>${esc(v.name)}</span>${v.id === vaultId ? "<small>Open</small>" : ""}</button>`).join("")}<button type="button" class="command-result" data-action="vault-new">${icon("plus")}<span>New vault</span></button><button type="button" class="command-result" data-action="vault-rename">${icon("edit")}<span>Rename this vault</span></button><p class="storage-note">Each vault keeps its own notes, folders, canvas, drafts and vault file in this browser. Export backs up the open vault only.</p>`,
+  );
+}
+function newVaultDialog() {
+  dialog(
+    "New vault",
+    `<label class="field-label" for="vault-name-input">Vault name</label><input class="field" id="vault-name-input" name="name" maxlength="${VAULT_NAME_MAX}" required placeholder="Work notes"><p class="storage-note">A new vault starts empty. Your other vaults stay as they are.</p>${actions("Create vault")}`,
+    async (form) => {
+      const fresh = readVaults(await registry.getMeta("vaults"));
+      if (fresh.length >= MAX_VAULTS) throw new Error(`You can keep up to ${MAX_VAULTS} vaults.`);
+      const v = { id: newVaultId(), name: checkVaultName(form.get("name"), fresh) };
+      vaults = readVaults(await registry.updateMeta("vaults", (raw) => withVault(raw, v)));
+      if (!vaults.some((x) => x.id === v.id)) throw new Error("The vault could not be added. Please try again.");
+      await switchVault(v.id);
+    },
+  );
+}
+function renameVaultDialog() {
+  dialog(
+    "Rename vault",
+    `<label class="field-label" for="vault-rename-input">Vault name</label><input class="field" id="vault-rename-input" name="name" maxlength="${VAULT_NAME_MAX}" required value="${esc(vaultName())}">${actions("Rename vault")}`,
+    async (form) => {
+      const fresh = readVaults(await registry.getMeta("vaults"));
+      const name = checkVaultName(form.get("name"), fresh, vaultId);
+      vaults = readVaults(await registry.updateMeta("vaults", (raw) => withName(raw, vaultId, name)));
+      closeDialog();
+      render();
+      toast("Vault renamed");
     },
   );
 }
@@ -1288,6 +1427,15 @@ async function handleAction(action) {
     case "settings":
       settings();
       break;
+    case "vaults":
+      vaultMenu();
+      break;
+    case "vault-new":
+      newVaultDialog();
+      break;
+    case "vault-rename":
+      renameVaultDialog();
+      break;
     case "right-links":
     case "right-outline":
     case "right-tags":
@@ -1533,7 +1681,7 @@ async function handleAction(action) {
     case "help":
       dialog(
         "A few useful shortcuts",
-        `<div class="row-setting"><span>Find a note</span><kbd>⌘ / Ctrl K</kbd></div><div class="row-setting"><span>New note</span><kbd>⌘ / Ctrl N</kbd></div><div class="row-setting"><span>Edit / read</span><kbd>⌘ / Ctrl E</kbd></div><div class="row-setting"><span>Save now</span><kbd>⌘ / Ctrl S</kbd></div><div class="row-setting"><span>Close a dialog</span><kbd>Esc</kbd></div><p>Use <code>[[note title]]</code> to connect ideas. Use <code>## Heading</code> for an outline and <code>- [ ]</code> for a task.</p>`,
+        `<div class="row-setting"><span>Find a note</span><kbd>${keys.label("K")}</kbd></div><div class="row-setting"><span>New note</span><kbd>${keys.label("N", true)}</kbd></div><div class="row-setting"><span>Edit / read</span><kbd>${keys.label("E")}</kbd></div><div class="row-setting"><span>Save now</span><kbd>${keys.label("S")}</kbd></div><div class="row-setting"><span>Close a dialog</span><kbd>Esc</kbd></div><p>Use <code>[[note title]]</code> to connect ideas. Use <code>## Heading</code> for an outline and <code>- [ ]</code> for a task.</p>`,
       );
       break;
   }
@@ -1548,6 +1696,26 @@ document.addEventListener("click", async (e) => {
     const nf = e.target.closest("[data-new-in]");
     if (nf) {
       newNoteDialog("", nf.dataset.newIn);
+      return;
+    }
+    const vb = e.target.closest("[data-vault]");
+    if (vb) {
+      await switchVault(vb.dataset.vault);
+      return;
+    }
+    const fm = e.target.closest("[data-folder-menu]");
+    if (fm) {
+      folderMenu(fm.dataset.folderMenu);
+      return;
+    }
+    const fr = e.target.closest("[data-folder-rename]");
+    if (fr) {
+      renameFolderDialog(fr.dataset.folderRename);
+      return;
+    }
+    const fd = e.target.closest("[data-folder-delete]");
+    if (fd) {
+      deleteFolderDialog(fd.dataset.folderDelete);
       return;
     }
     const node = e.target.closest("[data-note]");
@@ -1645,7 +1813,7 @@ document.addEventListener("click", async (e) => {
     const a = e.target.closest("[data-action]")?.dataset.action;
     if (a) {
       e.preventDefault();
-      if (!loaded && !["retry-load", "close-modal", "backup", "download-raw"].includes(a))
+      if (!loaded && !["retry-load", "close-modal", "backup", "download-raw", "vaults", "vault-new", "vault-rename"].includes(a))
         return;
       await handleAction(a);
     }
@@ -1693,14 +1861,19 @@ document.addEventListener("keydown", (e) => {
     !e.shiftKey
   )
     homeKey(e);
-  if (
-    (e.metaKey || e.ctrlKey) &&
+  if (keys.isNewNote(e)) {
+    e.preventDefault();
+    if (loaded) newNoteDialog();
+  } else if (
+    keys.isCommand(e) &&
+    !e.altKey &&
     ["k", "n", "e", "s"].includes(e.key.toLowerCase())
   ) {
     e.preventDefault();
     if (!loaded) return;
     const key = e.key.toLowerCase();
     if (key === "k") commandPalette();
+    // Where the browser lets the page have it, as in an installed app window.
     if (key === "n") newNoteDialog();
     if (key === "e" && !modal.open) handleAction("mode");
     if (key === "s") saveVault();
@@ -1839,19 +2012,32 @@ window.addEventListener("beforeunload", (e) => {
     e.returnValue = "";
   }
 });
-// Other tabs and the vault file.
-store.onSaved((rev) => {
-  if (loaded && rev !== revision) reloadQuiet();
-});
-if (caps.supported) {
-  mirror = new FileMirror({
-    store,
-    handleStore: idbHandleStore(store),
-    locks: browserLocks(),
-    onState: fileStateChanged,
-    onVaultReplaced: vaultReplaced,
-    id: draftSession,
+// Opens the vault this tab was showing, or the last one chosen, then its notes.
+async function boot() {
+  try {
+    vaults = readVaults(await registry.getMeta("vaults"));
+  } catch {
+    /* only the first vault can be listed */
+  }
+  vaultId = pickVault(vaults, openVaultId());
+  const names = vaultStorage(vaultId);
+  store = createStore({ dbName: names.dbName, channelName: names.channel });
+  // Other tabs and the vault file.
+  store.onSaved((rev) => {
+    if (loaded && rev !== revision) reloadQuiet();
   });
+  if (caps.supported) {
+    mirror = new FileMirror({
+      store,
+      handleStore: idbHandleStore(store),
+      locks: browserLocks(),
+      onState: fileStateChanged,
+      onVaultReplaced: vaultReplaced,
+      id: draftSession,
+      lockName: names.lockName,
+    });
+  }
+  await loadVault();
 }
 document.addEventListener("visibilitychange", () => {
   if (!fileUiAllowed({ loaded, storageDown })) return;
@@ -1940,5 +2126,5 @@ function registerTools() {
     } catch {}
 }
 render();
-loadVault();
+boot();
 registerTools();

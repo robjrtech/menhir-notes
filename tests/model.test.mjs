@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {validateVault,safeURL,MAX_BYTES} from '../web/model.js';
+import {validateVault,safeURL,MAX_BYTES,renameFolder,deleteFolder} from '../web/model.js';
+import {note as hnote,NOW} from './helpers.mjs';
 
 const now='2026-01-01T00:00:00.000Z';
 const note=(id='one')=>({id,title:'Note '+id,folder:'Notes',body:'# A note\nA thought with [[Note two]].',tags:['ideas'],starred:false,createdAt:now,updatedAt:now});
@@ -46,4 +47,39 @@ test('script, data and other unsafe link schemes are rejected',()=>{
 });
 test('http, https and mailto links are accepted',()=>{
  for(const url of ['https://example.com/','http://example.com/a','mailto:hello'+String.fromCharCode(64)+'example.com'])assert.equal(safeURL(url),url);
+});
+
+const twoFolders=()=>validateVault({version:1,folders:['Notes','Work'],notes:[hnote('one'),hnote('two',{title:'Note two',folder:'Work'}),hnote('three',{title:'Note three',folder:'Work'})],canvas:[{id:'two',x:1,y:1},{id:'one',x:2,y:2}]});
+test('deleting a folder can move its notes to another folder',()=>{
+ const before=twoFolders(),after=deleteFolder(before,'Work','Notes','2026-02-02T00:00:00.000Z');
+ assert.deepEqual(after.folders,['Notes']);
+ assert.equal(after.notes.length,3);
+ assert.ok(after.notes.every(n=>n.folder==='Notes'));
+ assert.equal(after.notes.find(n=>n.id==='two').updatedAt,'2026-02-02T00:00:00.000Z');
+ assert.equal(after.notes.find(n=>n.id==='one').updatedAt,NOW,'notes outside the folder are untouched');
+ assert.equal(after.canvas.length,2);
+ assert.deepEqual(before,twoFolders(),'the input is not changed');
+ validateVault(after);
+});
+test('deleting a folder can delete its notes and their canvas cards',()=>{
+ const after=deleteFolder(twoFolders(),'Work',null);
+ assert.deepEqual(after.notes.map(n=>n.id),['one']);
+ assert.deepEqual(after.canvas.map(c=>c.id),['one']);
+ validateVault(after);
+});
+test('a folder delete refuses the last folder, a missing folder and a bad destination',()=>{
+ const v=twoFolders();
+ assert.throws(()=>deleteFolder(deleteFolder(v,'Work','Notes'),'Notes',null),/at least one folder/);
+ assert.throws(()=>deleteFolder(v,'Gone',null),/no longer exists/);
+ assert.throws(()=>deleteFolder(v,'Work','Work'),/another folder/);
+ assert.throws(()=>deleteFolder(v,'Work','Elsewhere'),/another folder/);
+});
+test('renaming a folder moves its notes with it and keeps names unique',()=>{
+ const after=renameFolder(twoFolders(),'Work',' Projects ');
+ assert.deepEqual(after.folders,['Notes','Projects']);
+ assert.deepEqual(after.notes.filter(n=>n.folder==='Projects').map(n=>n.id),['two','three']);
+ validateVault(after);
+ assert.throws(()=>renameFolder(twoFolders(),'Work','Notes'),/unique/);
+ assert.throws(()=>renameFolder(twoFolders(),'Work','  '),/1–80/);
+ assert.deepEqual(renameFolder(twoFolders(),'Work','Work'),twoFolders(),'renaming to the same name changes nothing');
 });

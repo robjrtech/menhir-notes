@@ -152,15 +152,34 @@ button.icon-button:hover {
 .vault-name {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
   height: 66px;
-  padding: 0 19px;
+  padding: 0 10px;
   font-weight: 600;
 }
-.vault-name small {
+.vault-switch {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 9px;
+  border-radius: 6px;
+  text-align: left;
+}
+.vault-switch > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vault-switch .icon:last-child {
+  width: 14px;
+  height: 14px;
   margin-left: auto;
   color: var(--faint);
-  font-size: 12px;
+}
+.vault-switch:hover .icon:last-child {
+  color: var(--text);
 }
 .search-trigger {
   display: flex;
@@ -241,6 +260,56 @@ button.icon-button:hover {
   margin-left: auto;
   color: var(--faint);
   font-size: 12px;
+}
+/* The actions button sits beside the folder row and shows on hover or keyboard focus. */
+.tree-folder {
+  display: flex;
+  align-items: center;
+  margin-top: 6px;
+}
+.tree-folder .tree-item.folder {
+  margin-top: 0;
+  min-width: 0;
+}
+button.icon-button.folder-more {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  opacity: 0;
+}
+.tree-folder:hover .folder-more,
+.folder-more:focus-visible {
+  opacity: 1;
+}
+@media (hover: none) {
+  button.icon-button.folder-more {
+    opacity: 1;
+  }
+}
+.choices {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+.choice {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 14px 0 8px;
+}
+.choice + .field {
+  margin-bottom: 4px;
+}
+.choices + .secondary-button {
+  margin-top: 16px;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 .star-label {
   font-size: 12px;

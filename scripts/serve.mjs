@@ -26,6 +26,8 @@ export const FILES = Object.freeze({
   "/model.js": entry("model.js", "js"),
   "/markdown.js": entry("markdown.js", "js"),
   "/home.js": entry("home.js", "js"),
+  "/vaults.js": entry("vaults.js", "js"),
+  "/keys.js": entry("keys.js", "js"),
   "/styles.css": entry("styles.css", "css"),
 });
 

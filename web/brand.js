@@ -7,6 +7,8 @@ export const BRAND = Object.freeze({
   channel: "menhir",
   lockName: "menhir-vault-file",
   themeKey: "menhir-theme",
+  vaultKey: "menhir-open-vault",
+  registryDb: "menhir-vaults",
   exportPrefix: "menhir-vault",
   recoveredDraftFile: "menhir-recovered-draft.json",
   vaultFile: "menhir-vault.json",

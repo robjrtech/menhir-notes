@@ -129,6 +129,7 @@ export class FileMirror {
     onState = () => {},
     onVaultReplaced = () => {},
     id = "tab",
+    lockName = BRAND.lockName,
   }) {
     Object.assign(this, {
       store,
@@ -141,6 +142,7 @@ export class FileMirror {
       onState,
       onVaultReplaced,
       id,
+      lockName,
     });
     this.state = { kind: "unlinked" };
     this.timer = null;
@@ -230,7 +232,7 @@ export class FileMirror {
 
   sync(options = {}) {
     const run = this.queue.then(() =>
-      this.locks.request(BRAND.lockName, () => this.#syncLocked(options)),
+      this.locks.request(this.lockName, () => this.#syncLocked(options)),
     );
     this.queue = run.then(
       () => {},
@@ -434,7 +436,7 @@ export class FileMirror {
 
   // choice: "keep-browser" or "use-file". Returns { stale: true } if the file changed again.
   resolveConflict(choice) {
-    return this.locks.request(BRAND.lockName, async () => {
+    return this.locks.request(this.lockName, async () => {
       const info = this.conflict;
       if (!info) return { stale: true };
       const handle = await this.handleStore.get();
@@ -480,7 +482,7 @@ export class FileMirror {
   // The user chose to replace an unreadable file with the browser's notes. Returns
   // { stale: true } if the file is no longer the one the banner described.
   overwriteFile() {
-    return this.locks.request(BRAND.lockName, async () => {
+    return this.locks.request(this.lockName, async () => {
       const handle = await this.handleStore.get();
       const seen = this.unreadable;
       const file = await handle.getFile();

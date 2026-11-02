@@ -51,7 +51,7 @@ A vault holds up to 500 notes, 100 folders and 100 canvas cards. Each note can h
 
 ## Security model in brief
 
-- The server answers `GET` and `HEAD` only for eleven fixed paths, refuses every other method without reading the body, and accepts only the exact `127.0.0.1:<port>` host (and redirects `localhost`).
+- The server answers `GET` and `HEAD` only for thirteen fixed paths, refuses every other method without reading the body, and accepts only the exact `127.0.0.1:<port>` host (and redirects `localhost`).
 - Every response carries a strict Content-Security-Policy (no inline scripts, no network connections from the page, no framing) and the usual hardening headers.
 - Notes are rendered by escaping all text; links are limited to `http`, `https` and `mailto`.
 - Storage and file permissions belong to the browser's origin, so another web page cannot read your notes even if it tricks the browser into talking to the local server.

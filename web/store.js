@@ -226,6 +226,19 @@ export function createStore({
       run("meta", "readwrite", (os) => {
         os.put(value, key);
       }),
+    // Reads, changes and writes one value in a single transaction, so two tabs changing it at
+    // once cannot lose each other's change. `change` must be synchronous and must not throw.
+    updateMeta: (key, change) =>
+      run("meta", "readwrite", (os) =>
+        new Promise((resolve) => {
+          const get = os.get(key);
+          get.onsuccess = () => {
+            const next = change(get.result);
+            os.put(next, key);
+            resolve(next);
+          };
+        }),
+      ),
     deleteMeta: (key) =>
       run("meta", "readwrite", (os) => {
         os.delete(key);

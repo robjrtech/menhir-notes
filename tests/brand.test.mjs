@@ -23,7 +23,7 @@ test('package name and license holder follow the brand',()=>{
 });
 test('every identifier in the brand module is used by the name, not hard-coded elsewhere',()=>{
  assert.match(BRAND.dbName,/^[a-z-]+$/);
- for(const key of ['themeKey','exportPrefix','recoveredDraftFile','vaultFile','lockName','channel'])assert.ok(String(BRAND[key]).startsWith(BRAND.dbName),key);
+ for(const key of ['themeKey','vaultKey','registryDb','exportPrefix','recoveredDraftFile','vaultFile','lockName','channel'])assert.ok(String(BRAND[key]).startsWith(BRAND.dbName),key);
 });
 
 // Earlier names of this project must not appear in any file. They are assembled from pieces

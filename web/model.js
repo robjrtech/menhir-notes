@@ -18,3 +18,22 @@ export function validateVault(raw) {
   return value;
 }
 export function safeURL(value){try{const u=new URL(value);return ['https:','http:','mailto:'].includes(u.protocol)?u.href:null}catch{return null}}
+// Folder changes return a new vault and leave the one passed in untouched.
+export function renameFolder(vault,from,to){
+  const name=String(to??'').trim();
+  if(!vault.folders.includes(from))throw new Error('That folder no longer exists.');
+  if(!name||name.length>80)throw new Error('Use a folder name of 1–80 characters.');
+  if(name!==from&&vault.folders.includes(name))throw new Error('Choose a unique folder name.');
+  return {...vault,folders:vault.folders.map(f=>f===from?name:f),notes:vault.notes.map(n=>n.folder===from?{...n,folder:name}:n)};
+}
+// Removes a folder. Its notes move to `moveTo`, or with `moveTo` null they are deleted along
+// with their canvas cards. A vault always keeps at least one folder.
+export function deleteFolder(vault,name,moveTo,now=new Date().toISOString()){
+  if(!vault.folders.includes(name))throw new Error('That folder no longer exists.');
+  if(vault.folders.length===1)throw new Error('A vault needs at least one folder.');
+  if(moveTo!==null&&(moveTo===name||!vault.folders.includes(moveTo)))throw new Error('Choose another folder for these notes.');
+  const inside=new Set(vault.notes.filter(n=>n.folder===name).map(n=>n.id));
+  return {...vault,folders:vault.folders.filter(f=>f!==name),
+    notes:moveTo===null?vault.notes.filter(n=>!inside.has(n.id)):vault.notes.map(n=>inside.has(n.id)?{...n,folder:moveTo,updatedAt:now}:n),
+    canvas:moveTo===null?vault.canvas.filter(c=>!inside.has(c.id)):vault.canvas};
+}
